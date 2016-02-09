@@ -1,0 +1,24 @@
+janitor_cleanup_threshold: 3600
+maximum_pod_count: 2
+grandcentral_domain: review.example.com
+refresh_interval_in_ms: 300000
+
+keystore_path: config/grandcentral.jks
+pod_yaml_path: config/pod.yaml
+pod_port: 3000
+
+kubernetes:
+  master_ip: 172.17.4.99
+  namespace: sample
+  username: username
+  password: password
+
+gcloud:
+  registry_domain: gcr.io
+  registry_username: _json_key
+  registry_password: |
+    <service account key content>
+  project: quepid-1051
+  container_name: quails
+
+
