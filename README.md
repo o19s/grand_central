@@ -54,7 +54,7 @@ All logic for checking / creation of pods may be performed in a [`javax.servlet.
 Adds a route into the OS X routing table to forward all requests to the internal K8S IP space through the K8S virtual machine's IP.
 
 ```
-sudo route add -net 10.2.75 172.17.4.99
+sudo route add -net 10.2.47 172.17.4.99
 ```
 
 ## Local K8S Certificate

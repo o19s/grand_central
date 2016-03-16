@@ -8,41 +8,45 @@ import java.util.concurrent.atomic.AtomicLong;
  * Represents a Kubernetes pod.
  */
 public class Pod {
-  private String gitHash;
+  private String dockerTag;
   private String address;
   private String status;
   private AtomicLong lastRequest;
 
   /**
    * Creates a new Pod
-   * @param gitHash
+   * @param dockerTag
    * @param address
    * @param status
    */
-  public Pod(String gitHash, String address, String status) {
-    this(gitHash, address, status, DateTime.now().getMillis());
+  public Pod(String dockerTag, String address, String status) {
+    this(dockerTag, address, status, DateTime.now().getMillis());
   }
 
   /**
    * Creates a new Pod
-   * @param gitHash Hash identifier for the Pod (7 character git hash)
+   * @param dockerTag Identifier for the Pod
    * @param address IP Address of the Pod
    * @param status Status of the Pod
    * @param lastRequest When this pod last received a request
    */
-  public Pod(String gitHash, String address, String status, long lastRequest) {
-    this.gitHash = gitHash;
+  public Pod(String dockerTag, String address, String status, long lastRequest) {
+    this.dockerTag = dockerTag;
     this.address = address;
     this.status = status;
     this.lastRequest = new AtomicLong(lastRequest);
   }
 
-  public String getGitHash() {
-    return gitHash;
+  public String getDockerTag() {
+    return dockerTag;
   }
 
   public String getAddress() {
     return address;
+  }
+
+  public void setAddress(String address) {
+    this.address = address;
   }
 
   public String getStatus() { return status; }

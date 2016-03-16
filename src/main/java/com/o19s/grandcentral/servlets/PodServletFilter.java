@@ -4,6 +4,8 @@ import com.o19s.grandcentral.gcloud.GCloudRegistry;
 import com.o19s.grandcentral.kubernetes.Pod;
 import com.o19s.grandcentral.kubernetes.PodManager;
 import org.eclipse.jetty.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
@@ -14,6 +16,8 @@ import java.io.IOException;
  * Filter which drops requests that do not match the appropriate host header format.
  */
 public class PodServletFilter implements javax.servlet.Filter {
+  private static final Logger LOGGER = LoggerFactory.getLogger(PodServletFilter.class);
+
   private String grandCentralDomain;
   private PodManager podManager;
   private GCloudRegistry gCloudRegistry;
@@ -83,7 +87,8 @@ public class PodServletFilter implements javax.servlet.Filter {
           return_error(servletResponse, HttpStatus.BAD_REQUEST_400, "Host Header was not specified or is invalid");
         }
       } catch (Exception e) {
-        e.printStackTrace(System.err);
+        LOGGER.error("Exception filtering request", e);
+
         return_error(servletResponse, HttpStatus.INTERNAL_SERVER_ERROR_500, "Error validating header");
       }
     }
@@ -97,7 +102,7 @@ public class PodServletFilter implements javax.servlet.Filter {
    * @throws IOException
    */
   private void return_error(ServletResponse servletResponse, int status, String message) throws IOException {
-    System.err.println(message);
+    LOGGER.error(message);
 
     HttpServletResponse httpResponse = (HttpServletResponse) servletResponse;
     httpResponse.setStatus(status);

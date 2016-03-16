@@ -30,14 +30,15 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.ssl.SSLContexts;
 import org.joda.time.DateTime;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.net.ssl.SSLContext;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
-import java.util.HashMap;
+import java.util.*;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
@@ -45,8 +46,10 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
  * Manages all pods present within a namespace
  */
 public class PodManager {
+  private static final Logger LOGGER = LoggerFactory.getLogger(PodManager.class);
+
   private long lastRefresh;
-  private HashMap<String, Pod> pods;
+  private static final Map<String, Pod> pods = new HashMap<>();
 
   private KubernetesConfiguration k8sConfiguration;
 
@@ -62,9 +65,9 @@ public class PodManager {
   private final ObjectMapper yamlObjectMapper = new ObjectMapper(yamlFactory);
   private final ObjectNode podDefinition;
 
-  final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
-  final Lock readLock = readWriteLock.readLock();
-  final Lock writeLock = readWriteLock.writeLock();
+  static final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
+  static final Lock readLock = readWriteLock.readLock();
+  static final Lock writeLock = readWriteLock.writeLock();
 
   /**
    * Instantiates a new manages with the specified settings
@@ -77,7 +80,6 @@ public class PodManager {
                     String keystorePath,
                     long refreshIntervalInMs,
                     int maximumPodCount, String podYamlPath) throws IOException {
-    pods = new HashMap<>();
     lastRefresh = 0;
 
     this.k8sConfiguration = k8sConfiguration;
@@ -88,7 +90,7 @@ public class PodManager {
     podDefinition = jsonObjectMapper.createObjectNode();
     podDefinition.setAll((ObjectNode) yamlObjectMapper.readTree(new File(podYamlPath)));
 
-    System.err.println("Loaded Pod Definition: " + podDefinition);
+    LOGGER.info("Loaded Pod Definition: " + podDefinition);
 
     try {
       // Setup SSL and plain connection socket factories
@@ -117,8 +119,8 @@ public class PodManager {
           new AuthScope(k8sConfiguration.getMasterIp(), 443),
           new UsernamePasswordCredentials(k8sConfiguration.getUsername(), k8sConfiguration.getPassword()));
       httpContext.setCredentialsProvider(k8sCredentialsProvider);
-    } catch (Exception ex) {
-      ex.printStackTrace(System.err);
+    } catch (Exception e) {
+      LOGGER.error("Error configuring HTTP clients", e);
     }
 
     // Initial loading of pod information
@@ -131,6 +133,7 @@ public class PodManager {
    * @return The pod which matches the given key.
    */
   public Pod get(String dockerTag) throws IOException {
+    // Force a refresh of the data from K8S if the interval has passed
     if (DateTime.now().getMillis() - lastRefresh > refreshIntervalInMs) {
       refreshPods();
     }
@@ -149,9 +152,7 @@ public class PodManager {
    */
   public Boolean contains(String dockerTag) {
     readLock.lock();
-
     boolean contains = pods.containsKey(dockerTag);
-
     readLock.unlock();
 
     return contains;
@@ -180,7 +181,7 @@ public class PodManager {
         }
       }
 
-      System.err.println("Generated definition for \"" + dockerTag +"\": " + newPodDefinition);
+      LOGGER.info("Generated definition for \"" + dockerTag +"\": " + newPodDefinition);
 
       generator.writeObject(newPodDefinition);
       generator.flush();
@@ -192,12 +193,12 @@ public class PodManager {
 
       try (CloseableHttpResponse response = httpClient.execute(podSchedule, httpContext)) {
         if (response.getStatusLine().getStatusCode() == HttpStatus.SC_CREATED) {
-          System.err.println("Pod scheduled");
+          LOGGER.info("Pod " + dockerTag + ": Scheduled");
         } else {
-          System.err.println("Pod was not scheduled");
+          LOGGER.info("Pod " + dockerTag + ": Not scheduled");
         }
       } catch (IOException ioe) {
-        ioe.printStackTrace(System.err);
+        LOGGER.error("Pod " + dockerTag + ": Error scheduling pod", ioe);
       }
 
       // Wait until Pod is running
@@ -205,7 +206,7 @@ public class PodManager {
       Pod pod = null;
       HttpGet podStatusGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
       do {
-        System.err.println("Waiting for pod to start");
+        LOGGER.info("Pod " + dockerTag + ": waiting for start");
         Thread.sleep(1000);
 
         try (CloseableHttpResponse response = httpClient.execute(podStatusGet, httpContext)) {
@@ -215,12 +216,12 @@ public class PodManager {
 
             podRunning = pod != null && pod.isRunning();
           } catch (IOException ioe) {
-            ioe.printStackTrace(System.err);
+            LOGGER.error("Pod " + dockerTag + ": Error checking pod status", ioe);
           }
         }
       } while (!podRunning);
 
-      System.err.println("Pod Started");
+      LOGGER.info("Pod " + dockerTag + ": Started");
 
       readLock.unlock();
 
@@ -251,12 +252,12 @@ public class PodManager {
 
       try (CloseableHttpResponse response = httpClient.execute(podDelete, httpContext)) {
         if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-          System.err.println("Pod removed");
+          LOGGER.info("Pod " + dockerTag + ": Removed");
         } else {
-          System.err.println("Error removing pod");
+          LOGGER.info("Pod " + dockerTag + ": Error removing pod (" + response.getStatusLine().toString() + ")");
         }
       } catch (IOException ioe) {
-        ioe.printStackTrace(System.err);
+        LOGGER.error("Pod " + dockerTag + ": Error removing pod", ioe);
       }
     } else {
       throw new IllegalArgumentException("Pod doesn't exist");
@@ -269,6 +270,8 @@ public class PodManager {
 
   private void removeExtraPods() throws IOException {
     if (pods.size() > maximumPodCount) {
+      LOGGER.info("Removing extra pods");
+
       readLock.lock();
       Pod[] sortedPodsByRequestAge = pods.values().toArray(new Pod[pods.size()]);
       Arrays.sort(
@@ -287,7 +290,7 @@ public class PodManager {
       writeLock.lock();
       int amountToRemove = sortedPodsByRequestAge.length - maximumPodCount;
       for (int i = 0; i < amountToRemove; i++) {
-        remove(sortedPodsByRequestAge[i].getGitHash());
+        remove(sortedPodsByRequestAge[i].getDockerTag());
       }
       writeLock.unlock();
     }
@@ -306,25 +309,40 @@ public class PodManager {
           // Grab the write lock
           writeLock.lock();
 
-          // Reset the pods hash
-          pods.clear();
-
-          // Iterate over results rebuilding the hash
+          // Update our internal pod hash
+          Set<String> toDelete = new HashSet<>(pods.size());
+          toDelete.addAll(pods.keySet());
           for (int i = 0; i < itemsNode.size(); i++) {
             Pod pod = parsePod(itemsNode.get(i));
 
             if (pod != null && pod.isRunning()) {
-              pods.put(pod.getGitHash(), pod);
+              // The pod is valid and should be managed
+              if (pods.containsKey(pod.getDockerTag())) {
+                LOGGER.info("Refresh: Updating pod " + pod.getDockerTag() + " in internal hash");
+
+                // Update the pod's address
+                pods.get(pod.getDockerTag()).setAddress(pod.getAddress());
+
+                // Remove the pending delete task for pods that exist
+                toDelete.remove(pod.getDockerTag());
+              } else {
+                LOGGER.info("Refresh: Adding pod " + pod.getDockerTag() + " to internal hash");
+                pods.put(pod.getDockerTag(), pod);
+              }
             }
           }
+
+          // Delete pods that have been removed (delete refers to our hash, not k8s)
+          toDelete.forEach((dockerTag) -> LOGGER.info("Refresh: Removing pod " + dockerTag + " from internal hash"));
+          toDelete.forEach(pods::remove);
         } catch (IOException ioe) {
-          ioe.printStackTrace(System.err);
+          LOGGER.error("Pod Refresh: Error parsing pods", ioe);
         } finally {
           writeLock.unlock();
         }
       }
     } catch (IOException ioe) {
-      ioe.printStackTrace(System.err);
+      LOGGER.error("Pod Refresh: Error retrieving pods", ioe);
     }
 
     // Cleanup old pods
@@ -338,9 +356,9 @@ public class PodManager {
     if (podNode != null) {
       String name = podNode.get("metadata").get("name").asText();
       String status = podNode.get("status").get("phase").asText();
-      String podIP = status.equals("Running") ? podNode.get("status").get("phase").asText() : "";
+      String podIP = status.equals("Running") ? podNode.get("status").get("podIP").asText() : "";
 
-      return new Pod(name, status, podIP);
+      return new Pod(name, podIP, status);
     } else {
       return null;
     }

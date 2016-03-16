@@ -1,6 +1,8 @@
 package com.o19s.grandcentral.servlets;
 
 import org.eclipse.jetty.proxy.ProxyServlet;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -11,6 +13,8 @@ import java.net.URI;
  * Proxies requests to Pods running within the Kubernetes cluster.
  */
 public class PodProxyServlet extends ProxyServlet {
+
+  private static final Logger LOGGER = LoggerFactory.getLogger(PodProxyServlet.class);
 
   private final int podPort;
 
@@ -44,7 +48,7 @@ public class PodProxyServlet extends ProxyServlet {
     if (!this.validateDestination(rewrittenURI.getHost(), rewrittenURI.getPort()))
       return null;
 
-    System.err.println(uri);
+    LOGGER.debug(uri.toString());
 
     return rewrittenURI.toString();
   }
