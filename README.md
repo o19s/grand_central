@@ -64,10 +64,10 @@ The K8S cluster has a self-signed SSL certificate. It must be added to a keystor
 
 ```
 brew install openssl
-echo -n | /usr/local/Cellar/openssl/1.0.2e/bin/openssl s_client -connect 172.17.4.99:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > k8s/local.pem
-echo -n | /usr/local/Cellar/openssl/1.0.2e/bin/openssl s_client -connect gcr.io:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > k8s/gcr.io.pem
-keytool -import -v -trustcacerts -alias local_k8s -file k8s/local.pem -keystore grandcentral.jks -keypass changeit -storepass changeit
-keytool -import -v -trustcacerts -alias gcr_io -file k8s/gcr.io.pem -keystore grandcentral.jks -keypass changeit -storepass changeit
+echo -n | /usr/local/Cellar/openssl/1.0.2e/bin/openssl s_client -connect <kubernetes master ip>:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > config/local.pem
+echo -n | /usr/local/Cellar/openssl/1.0.2e/bin/openssl s_client -connect gcr.io:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > config/gcr.io.pem
+echo "yes" | keytool -import -v -trustcacerts -alias local_k8s -file config/local.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
+echo "yes" | keytool -import -v -trustcacerts -alias gcr_io -file config/gcr.io.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
 ```
 
 **Linux**
@@ -75,8 +75,8 @@ keytool -import -v -trustcacerts -alias gcr_io -file k8s/gcr.io.pem -keystore gr
 ```
 echo -n | openssl s_client -connect 172.17.4.99:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > config/local.pem
 echo -n | openssl s_client -connect gcr.io:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > config/gcr.io.pem
-keytool -import -v -trustcacerts -alias local_k8s -file k8s/local.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
-keytool -import -v -trustcacerts -alias gcr_io -file k8s/gcr.io.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
+echo "yes" | keytool -import -v -trustcacerts -alias local_k8s -file k8s/local.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
+echo "yes" | keytool -import -v -trustcacerts -alias gcr_io -file k8s/gcr.io.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
 ```
 
 ### Logging in to GCR.io
