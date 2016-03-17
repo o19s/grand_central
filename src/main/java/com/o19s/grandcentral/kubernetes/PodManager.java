@@ -12,7 +12,7 @@ import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import com.o19s.grandcentral.http.HttpDelete; // IMPORTANT
+import com.o19s.grandcentral.http.HttpDelete; // IMPORTANT, allows DELETE requests with bodies
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
@@ -212,7 +212,7 @@ public class PodManager {
         try (CloseableHttpResponse response = httpClient.execute(podStatusGet, httpContext)) {
           HttpEntity entity = response.getEntity();
           try (InputStream responseBody = entity.getContent()) {
-            pod = parsePod(jsonObjectMapper.readTree(responseBody));
+            pod = PodFactory.podFromJson(jsonObjectMapper.readTree(responseBody));
 
             podRunning = pod != null && pod.isRunning();
           } catch (IOException ioe) {
@@ -234,6 +234,11 @@ public class PodManager {
     return null;
   }
 
+  /**
+   * Stops a pod with the specified docker tag
+   * @param dockerTag The pod to stop
+   * @throws IOException Exception
+   */
   private void remove(String dockerTag) throws IOException {
     if (contains(dockerTag)) {
       readLock.lock();
@@ -268,6 +273,10 @@ public class PodManager {
     refreshPods();
   }
 
+  /**
+   * Removes the oldest running pods until maximumPodCount is reached
+   * @throws IOException
+   */
   private void removeExtraPods() throws IOException {
     if (pods.size() > maximumPodCount) {
       LOGGER.info("Removing extra pods");
@@ -296,6 +305,10 @@ public class PodManager {
     }
   }
 
+  /**
+   * Refreshes the internal map which tracks all running pods
+   * @throws IOException
+   */
   private void refreshPods() throws IOException {
     HttpGet podsGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
 
@@ -313,7 +326,7 @@ public class PodManager {
           Set<String> toDelete = new HashSet<>(pods.size());
           toDelete.addAll(pods.keySet());
           for (int i = 0; i < itemsNode.size(); i++) {
-            Pod pod = parsePod(itemsNode.get(i));
+            Pod pod = PodFactory.podFromJson(itemsNode.get(i));
 
             if (pod != null && pod.isRunning()) {
               // The pod is valid and should be managed
@@ -350,17 +363,5 @@ public class PodManager {
 
     // Update the lastRefresh time
     lastRefresh = DateTime.now().getMillis();
-  }
-
-  private Pod parsePod(JsonNode podNode) {
-    if (podNode != null) {
-      String name = podNode.get("metadata").get("name").asText();
-      String status = podNode.get("status").get("phase").asText();
-      String podIP = status.equals("Running") ? podNode.get("status").get("podIP").asText() : "";
-
-      return new Pod(name, podIP, status);
-    } else {
-      return null;
-    }
   }
 }
