@@ -195,7 +195,7 @@ public class PodManager {
         if (response.getStatusLine().getStatusCode() == HttpStatus.SC_CREATED) {
           LOGGER.info("Pod " + dockerTag + ": Scheduled");
         } else {
-          LOGGER.info("Pod " + dockerTag + ": Not scheduled");
+          LOGGER.info("Pod " + dockerTag + ": Not scheduled (" + response.getStatusLine().toString() + ")");
         }
       } catch (IOException ioe) {
         LOGGER.error("Pod " + dockerTag + ": Error scheduling pod", ioe);
