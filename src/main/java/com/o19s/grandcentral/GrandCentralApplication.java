@@ -1,6 +1,8 @@
 package com.o19s.grandcentral;
 
 import com.o19s.grandcentral.gcloud.GCloudRegistry;
+import com.o19s.grandcentral.healthchecks.ContainerRegistryHealthCheck;
+import com.o19s.grandcentral.healthchecks.KubernetesMasterHealthCheck;
 import com.o19s.grandcentral.kubernetes.PodManager;
 import com.o19s.grandcentral.servlets.PodProxyServlet;
 import com.o19s.grandcentral.servlets.PodServletFilter;
@@ -26,6 +28,21 @@ public class GrandCentralApplication extends Application<GrandCentralConfigurati
 
   @Override
   public void run(GrandCentralConfiguration config, Environment environment) throws Exception {
+    // Add health checks
+    environment.healthChecks().register("container_registry", new ContainerRegistryHealthCheck(
+        config.getKeystorePath(),
+        config.getGCloudConfiguration().getRegistryDomain(),
+        config.getGCloudConfiguration().getProject(),
+        config.getGCloudConfiguration().getContainerName(),
+        config.getGCloudConfiguration().getRegistryUsername(),
+        config.getGCloudConfiguration().getRegistryPassword()));
+    environment.healthChecks().register("kubernetes_master", new KubernetesMasterHealthCheck(
+        config.getKubernetesConfiguration().getMasterIp(),
+        config.getKeystorePath(),
+        config.getKubernetesConfiguration().getUsername(),
+        config.getKubernetesConfiguration().getPassword(),
+        config.getKubernetesConfiguration().getNamespace()));
+
     // Build the PodManager
     PodManager podManager = new PodManager(
         config.getKubernetesConfiguration(),
