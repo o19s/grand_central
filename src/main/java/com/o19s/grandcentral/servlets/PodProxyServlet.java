@@ -45,10 +45,12 @@ public class PodProxyServlet extends ProxyServlet {
     }
     URI rewrittenURI = URI.create(uri.toString()).normalize();
 
-    if (!this.validateDestination(rewrittenURI.getHost(), rewrittenURI.getPort()))
+    if (!this.validateDestination(rewrittenURI.getHost(), rewrittenURI.getPort())) {
+      LOGGER.error("Failed destination validation: " + rewrittenURI.toString());
       return null;
+    }
 
-    LOGGER.debug(uri.toString());
+    LOGGER.info("Rewrote " + request.getRequestURI() + " to " + rewrittenURI.toString());
 
     return rewrittenURI.toString();
   }

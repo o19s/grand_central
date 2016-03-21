@@ -77,6 +77,8 @@ public class PodServletFilter implements javax.servlet.Filter {
             }
 
             if (pod != null) {
+              LOGGER.info("Pod " + pod.getDockerTag() + " found!");
+
               request.setAttribute("proxyTo", pod.getAddress());
               filterChain.doFilter(servletRequest, servletResponse);
             } else {
