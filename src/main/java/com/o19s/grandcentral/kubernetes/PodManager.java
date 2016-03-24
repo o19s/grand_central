@@ -28,7 +28,6 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.protocol.HTTP;
 import org.apache.http.ssl.SSLContexts;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -334,6 +333,8 @@ public class PodManager {
       }
 
       refreshPods();
+    } else {
+      readLock.unlock();
     }
   }
 
