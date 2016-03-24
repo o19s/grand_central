@@ -28,6 +28,7 @@ import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
+import org.apache.http.protocol.HTTP;
 import org.apache.http.ssl.SSLContexts;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
@@ -133,14 +134,22 @@ public class PodManager {
    * @return The pod which matches the given key.
    */
   public Pod get(String dockerTag) throws IOException {
+    Pod pod = null;
+
     // Force a refresh of the data from K8S if the interval has passed
     if (DateTime.now().getMillis() - lastRefresh > refreshIntervalInMs) {
       refreshPods();
     }
 
-    readLock.lock();
-    Pod pod = pods.get(dockerTag);
-    readLock.unlock();
+
+    if (contains(dockerTag)) {
+      readLock.lock();
+      try {
+        pod = pods.get(dockerTag);
+      } finally {
+        readLock.unlock();
+      }
+    }
 
     return pod;
   }
@@ -152,8 +161,13 @@ public class PodManager {
    */
   public Boolean contains(String dockerTag) {
     readLock.lock();
-    boolean contains = pods.containsKey(dockerTag);
-    readLock.unlock();
+    boolean contains = false;
+
+    try {
+      contains = pods.containsKey(dockerTag);
+    } finally {
+      readLock.unlock();
+    }
 
     return contains;
   }
@@ -164,66 +178,72 @@ public class PodManager {
    */
   public Pod add(String dockerTag) throws Exception {
     if (!contains(dockerTag)) {
+      Pod pod = null;
+
       // Get the read lock
       readLock.lock();
 
-      // Schedule the new Pod
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      JsonGenerator generator = jsonFactory.createGenerator(baos);
+      try {
+        // Schedule the new Pod
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        JsonGenerator generator = jsonFactory.createGenerator(baos);
 
-      ObjectNode newPodDefinition = podDefinition.deepCopy();
-      ((ObjectNode)newPodDefinition.get("metadata")).put("name", dockerTag);
-      String image;
-      for (JsonNode containerNode : newPodDefinition.get("spec").get("containers")) {
-        image = containerNode.get("image").asText();
-        if (image.endsWith("__DOCKER_TAG__")) {
-          ((ObjectNode) containerNode).put("image", image.replace("__DOCKER_TAG__", dockerTag));
-        }
-      }
-
-      LOGGER.info("Generated definition for \"" + dockerTag +"\": " + newPodDefinition);
-
-      generator.writeObject(newPodDefinition);
-      generator.flush();
-      generator.close();
-
-      HttpPost podSchedule = new HttpPost("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
-      HttpEntity podJson = new ByteArrayEntity(baos.toByteArray());
-      podSchedule.setEntity(podJson);
-
-      try (CloseableHttpResponse response = httpClient.execute(podSchedule, httpContext)) {
-        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_CREATED) {
-          LOGGER.info("Pod " + dockerTag + ": Scheduled");
-        } else {
-          LOGGER.info("Pod " + dockerTag + ": Not scheduled (" + response.getStatusLine().toString() + ")");
-        }
-      } catch (IOException ioe) {
-        LOGGER.error("Pod " + dockerTag + ": Error scheduling pod", ioe);
-      }
-
-      // Wait until Pod is running
-      boolean podRunning = false;
-      Pod pod = null;
-      HttpGet podStatusGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
-      do {
-        LOGGER.info("Pod " + dockerTag + ": waiting for start");
-        Thread.sleep(1000);
-
-        try (CloseableHttpResponse response = httpClient.execute(podStatusGet, httpContext)) {
-          HttpEntity entity = response.getEntity();
-          try (InputStream responseBody = entity.getContent()) {
-            pod = PodFactory.podFromJson(jsonObjectMapper.readTree(responseBody));
-
-            podRunning = pod != null && pod.isRunning();
-          } catch (IOException ioe) {
-            LOGGER.error("Pod " + dockerTag + ": Error checking pod status", ioe);
+        ObjectNode newPodDefinition = podDefinition.deepCopy();
+        ((ObjectNode) newPodDefinition.get("metadata")).put("name", dockerTag);
+        String image;
+        for (JsonNode containerNode : newPodDefinition.get("spec").get("containers")) {
+          image = containerNode.get("image").asText();
+          if (image.endsWith("__DOCKER_TAG__")) {
+            ((ObjectNode) containerNode).put("image", image.replace("__DOCKER_TAG__", dockerTag));
           }
         }
-      } while (!podRunning);
 
-      LOGGER.info("Pod " + dockerTag + ": Started");
+        LOGGER.info("Generated definition for \"" + dockerTag + "\": " + newPodDefinition);
 
-      readLock.unlock();
+        generator.writeObject(newPodDefinition);
+        generator.flush();
+        generator.close();
+
+        HttpPost podSchedule = new HttpPost("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
+        HttpEntity podJson = new ByteArrayEntity(baos.toByteArray());
+        podSchedule.setEntity(podJson);
+
+        try (CloseableHttpResponse response = httpClient.execute(podSchedule, httpContext)) {
+          int status = response.getStatusLine().getStatusCode();
+          if (status == HttpStatus.SC_CREATED) {
+            LOGGER.info("Pod " + dockerTag + ": Scheduled");
+          } else if (status == HttpStatus.SC_CONFLICT) {
+            LOGGER.info("Pod " + dockerTag + ": Already running");
+          } else {
+            LOGGER.info("Pod " + dockerTag + ": Not scheduled (" + response.getStatusLine().toString() + ")");
+          }
+        } catch (IOException ioe) {
+          LOGGER.error("Pod " + dockerTag + ": Error scheduling pod", ioe);
+        }
+
+        // Wait until Pod is running
+        boolean podRunning = false;
+        HttpGet podStatusGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
+        do {
+          LOGGER.info("Pod " + dockerTag + ": waiting for start");
+          Thread.sleep(1000);
+
+          try (CloseableHttpResponse response = httpClient.execute(podStatusGet, httpContext)) {
+            HttpEntity entity = response.getEntity();
+            try (InputStream responseBody = entity.getContent()) {
+              pod = PodFactory.podFromJson(jsonObjectMapper.readTree(responseBody));
+
+              podRunning = pod != null && pod.isRunning();
+            } catch (IOException ioe) {
+              LOGGER.error("Pod " + dockerTag + ": Error checking pod status", ioe);
+            }
+          }
+        } while (!podRunning);
+
+        LOGGER.info("Pod " + dockerTag + ": Started");
+      } finally {
+        readLock.unlock();
+      }
 
       // Force a refresh of the pod list
       refreshPods();
@@ -235,42 +255,42 @@ public class PodManager {
   }
 
   /**
-   * Stops a pod with the specified docker tag
-   * @param dockerTag The pod to stop
-   * @throws IOException Exception
+   * Stops the pod containing the specified docker tag. Note this does not force a refresh of the pods state
+   * @param dockerTag
+   * @throws IOException
    */
   private void remove(String dockerTag) throws IOException {
     if (contains(dockerTag)) {
       readLock.lock();
 
-      ByteArrayOutputStream baos = new ByteArrayOutputStream();
-      JsonGenerator generator = jsonFactory.createGenerator(baos);
+      try {
+        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+        JsonGenerator generator = jsonFactory.createGenerator(baos);
 
-      ObjectNode root = jsonObjectMapper.createObjectNode();
-      root.put("gracePeriodSeconds", 0);
+        ObjectNode root = jsonObjectMapper.createObjectNode();
+        root.put("gracePeriodSeconds", 0);
 
-      generator.writeObject(root);
-      generator.flush();
+        generator.writeObject(root);
+        generator.flush();
 
-      HttpDelete podDelete = new HttpDelete("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
-      podDelete.setEntity(new ByteArrayEntity(baos.toByteArray()));
+        HttpDelete podDelete = new HttpDelete("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
+        podDelete.setEntity(new ByteArrayEntity(baos.toByteArray()));
 
-      try (CloseableHttpResponse response = httpClient.execute(podDelete, httpContext)) {
-        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-          LOGGER.info("Pod " + dockerTag + ": Removed");
-        } else {
-          LOGGER.info("Pod " + dockerTag + ": Error removing pod (" + response.getStatusLine().toString() + ")");
+        try (CloseableHttpResponse response = httpClient.execute(podDelete, httpContext)) {
+          if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+            LOGGER.info("Pod " + dockerTag + ": Removed");
+          } else {
+            LOGGER.info("Pod " + dockerTag + ": Error removing pod (" + response.getStatusLine().toString() + ")");
+          }
+        } catch (IOException ioe) {
+          LOGGER.error("Pod " + dockerTag + ": Error removing pod", ioe);
         }
-      } catch (IOException ioe) {
-        LOGGER.error("Pod " + dockerTag + ": Error removing pod", ioe);
+      } finally {
+        readLock.unlock();
       }
     } else {
       throw new IllegalArgumentException("Pod doesn't exist");
     }
-
-    readLock.unlock();
-
-    refreshPods();
   }
 
   /**
@@ -278,30 +298,42 @@ public class PodManager {
    * @throws IOException
    */
   private void removeExtraPods() throws IOException {
+    readLock.lock();
     if (pods.size() > maximumPodCount) {
-      LOGGER.info("Removing extra pods");
-
-      readLock.lock();
-      Pod[] sortedPodsByRequestAge = pods.values().toArray(new Pod[pods.size()]);
-      Arrays.sort(
-          sortedPodsByRequestAge,
-          (Pod left, Pod right) -> {
-            if (left.getLastRequest() > right.getLastRequest())
-              return 1;
-            else if (left.getLastRequest() < right.getLastRequest())
-              return -1;
-            else
-              return 0;
-          }
-      );
       readLock.unlock();
-
       writeLock.lock();
-      int amountToRemove = sortedPodsByRequestAge.length - maximumPodCount;
-      for (int i = 0; i < amountToRemove; i++) {
-        remove(sortedPodsByRequestAge[i].getDockerTag());
+
+      try {
+        // Check again since there was a time where we didn't have the lock
+        if (pods.size() > maximumPodCount) {
+          LOGGER.info("Removing extra pods");
+
+          // Determine the pods to remove
+          Pod[] sortedPodsByRequestAge = null;
+          sortedPodsByRequestAge = pods.values().toArray(new Pod[pods.size()]);
+          Arrays.sort(
+              sortedPodsByRequestAge,
+              (Pod left, Pod right) -> {
+                if (left.getLastRequest() > right.getLastRequest())
+                  return 1;
+                else if (left.getLastRequest() < right.getLastRequest())
+                  return -1;
+                else
+                  return 0;
+              }
+          );
+
+          // Remove the pods
+          int amountToRemove = sortedPodsByRequestAge.length - maximumPodCount;
+          for (int i = 0; i < amountToRemove; i++) {
+            remove(sortedPodsByRequestAge[i].getDockerTag());
+          }
+        }
+      } finally {
+        writeLock.unlock();
       }
-      writeLock.unlock();
+
+      refreshPods();
     }
   }
 
@@ -315,12 +347,12 @@ public class PodManager {
     try (CloseableHttpResponse response = httpClient.execute(podsGet, httpContext)) {
       HttpEntity entity = response.getEntity();
       if (entity != null) {
+        // Grab the write lock
+        writeLock.lock();
+
         try (InputStream responseBody = entity.getContent()) {
           JsonNode rootNode = jsonObjectMapper.readTree(responseBody);
           JsonNode itemsNode = rootNode.get("items");
-
-          // Grab the write lock
-          writeLock.lock();
 
           // Update our internal pod hash
           Set<String> toDelete = new HashSet<>(pods.size());
@@ -345,7 +377,7 @@ public class PodManager {
             }
           }
 
-          // Delete pods that have been removed (delete refers to our hash, not k8s)
+          // Delete pods that have been removed (delete refers to our hash, not k8s). This calls remove on the hash, not the manager.
           toDelete.forEach((dockerTag) -> LOGGER.info("Refresh: Removing pod " + dockerTag + " from internal hash"));
           toDelete.forEach(pods::remove);
         } catch (IOException ioe) {
