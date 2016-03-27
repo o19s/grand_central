@@ -224,7 +224,7 @@ public class PodManager {
         boolean podRunning = false;
         HttpGet podStatusGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
         do {
-          LOGGER.info("Pod " + dockerTag + ": waiting for start");
+          LOGGER.info("Pod " + dockerTag + ": Waiting for start");
           Thread.sleep(1000);
 
           try (CloseableHttpResponse response = httpClient.execute(podStatusGet, httpContext)) {
