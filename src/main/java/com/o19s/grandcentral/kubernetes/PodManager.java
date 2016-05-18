@@ -75,6 +75,7 @@ public class PodManager {
    * @param keystorePath Path to the Java Keystore containing trusted certificates
    * @param maximumPodCount Maximum number of pods to ever have running at once
    * @param refreshIntervalInMs Interval with which to refresh the pods
+   * @param podYamlPath the location of the yaml config for the application pod
    */
   public PodManager(KubernetesConfiguration k8sConfiguration,
                     String keystorePath,
@@ -343,7 +344,7 @@ public class PodManager {
    * @throws IOException
    */
   private void refreshPods() throws IOException {
-    HttpGet podsGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
+    HttpGet podsGet = new HttpGet(k8sConfiguration.getProtocol() + "://" + k8sConfiguration.getMasterIp() + "/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
 
     try (CloseableHttpResponse response = httpClient.execute(podsGet, httpContext)) {
       HttpEntity entity = response.getEntity();

@@ -2,8 +2,6 @@ package com.o19s.grandcentral.kubernetes;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.dropwizard.jackson.JsonSnakeCase;
-import io.dropwizard.setup.Environment;
-import org.apache.http.client.HttpClient;
 import org.hibernate.validator.constraints.NotEmpty;
 
 import javax.validation.constraints.NotNull;
@@ -27,6 +25,9 @@ public class KubernetesConfiguration {
   @NotEmpty
   private String namespace;
 
+  // this can be null
+  private String protocol;
+
   @JsonProperty
   public String getMasterIp() {
     return masterIp;
@@ -40,6 +41,16 @@ public class KubernetesConfiguration {
   @JsonProperty
   public String getUsername() {
     return username;
+  }
+
+  @JsonProperty
+  public String getProtocol() {
+    return (protocol == null) ? "https" : protocol;
+  }
+
+  @JsonProperty
+  public void setProtocol(String protocol) {
+    this.protocol = protocol;
   }
 
   @JsonProperty
