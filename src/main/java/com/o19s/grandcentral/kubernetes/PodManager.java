@@ -188,15 +188,7 @@ public class PodManager {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         JsonGenerator generator = jsonFactory.createGenerator(baos);
 
-        ObjectNode newPodDefinition = podDefinition.deepCopy();
-        ((ObjectNode) newPodDefinition.get("metadata")).put("name", dockerTag);
-        String image;
-        for (JsonNode containerNode : newPodDefinition.get("spec").get("containers")) {
-          image = containerNode.get("image").asText();
-          if (image.endsWith("__DOCKER_TAG__")) {
-            ((ObjectNode) containerNode).put("image", image.replace("__DOCKER_TAG__", dockerTag));
-          }
-        }
+        ObjectNode newPodDefinition = buildPodDefinition(dockerTag);
 
         LOGGER.info("Generated definition for \"" + dockerTag + "\": " + newPodDefinition);
 
@@ -204,7 +196,7 @@ public class PodManager {
         generator.flush();
         generator.close();
 
-        HttpPost podSchedule = new HttpPost("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
+        HttpPost podSchedule = new HttpPost("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods?labelSelector=GrandCentral%3Dmanaged");
         HttpEntity podJson = new ByteArrayEntity(baos.toByteArray());
         podSchedule.setEntity(podJson);
 
@@ -223,7 +215,7 @@ public class PodManager {
 
         // Wait until Pod is running
         boolean podRunning = false;
-        HttpGet podStatusGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
+        HttpGet podStatusGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag + "?labelSelector=GrandCentral%3Dmanaged");
         do {
           LOGGER.info("Pod " + dockerTag + ": Waiting for start");
           Thread.sleep(1000);
@@ -255,6 +247,26 @@ public class PodManager {
   }
 
   /**
+   * Create a pod definition Json object suitable for sending to Kubernetes
+   * @param dockerTag
+   * @return
+   */
+  public ObjectNode buildPodDefinition(String dockerTag) {
+    ObjectNode newPodDefinition = podDefinition.deepCopy();
+    ((ObjectNode) newPodDefinition.get("metadata")).put("name", dockerTag);
+    String image;
+    for (JsonNode containerNode : newPodDefinition.get("spec").get("containers")) {
+      image = containerNode.get("image").asText();
+      if (image.endsWith("__DOCKER_TAG__")) {
+        ((ObjectNode) containerNode).put("image", image.replace("__DOCKER_TAG__", dockerTag));
+      }
+    }
+    // Tag any pods we create for easy management
+    ((ObjectNode) newPodDefinition.get("metadata").get("labels")).put("GrandCentral", "managed");
+    return newPodDefinition;
+  }
+
+  /**
    * Stops the pod containing the specified docker tag. Note this does not force a refresh of the pods state
    * @param dockerTag
    * @throws IOException
@@ -273,7 +285,7 @@ public class PodManager {
         generator.writeObject(root);
         generator.flush();
 
-        HttpDelete podDelete = new HttpDelete("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
+        HttpDelete podDelete = new HttpDelete("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag + "?labelSelector=GrandCentral%3Dmanaged");
         podDelete.setEntity(new ByteArrayEntity(baos.toByteArray()));
 
         try (CloseableHttpResponse response = httpClient.execute(podDelete, httpContext)) {
@@ -344,7 +356,7 @@ public class PodManager {
    * @throws IOException
    */
   private void refreshPods() throws IOException {
-    HttpGet podsGet = new HttpGet(k8sConfiguration.getProtocol() + "://" + k8sConfiguration.getMasterIp() + "/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
+    HttpGet podsGet = new HttpGet(k8sConfiguration.getProtocol() + "://" + k8sConfiguration.getMasterIp() + "/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods?labelSelector=GrandCentral%3Dmanaged");
 
     try (CloseableHttpResponse response = httpClient.execute(podsGet, httpContext)) {
       HttpEntity entity = response.getEntity();
