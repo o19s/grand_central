@@ -1,0 +1,12 @@
+janitor_cleanup_threshold: 3600
+maximum_stack_count: 2
+grandcentral_domain: datastart.gc.com
+refresh_interval_in_ms: 300000
+
+pod_port: 81
+
+dockercloud:
+  hostname: cloud.docker.com
+  namespace: datastart
+  username: dep4b
+  apikey: YOUR_API_KEY

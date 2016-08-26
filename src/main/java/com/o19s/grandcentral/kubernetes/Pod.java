@@ -1,8 +1,8 @@
 package com.o19s.grandcentral.kubernetes;
 
-import org.joda.time.DateTime;
-
 import java.util.concurrent.atomic.AtomicLong;
+
+import org.joda.time.DateTime;
 
 /**
  * Represents a Kubernetes pod.

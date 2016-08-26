@@ -1,11 +1,15 @@
 package com.o19s.grandcentral.kubernetes;
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
+import static com.github.tomakehurst.wiremock.client.WireMock.get;
+import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.*;
+import com.github.tomakehurst.wiremock.junit.WireMockRule;
 
 ;
 /**
@@ -72,6 +76,6 @@ public class PodManagerTest {
                                 "   }" +
                                 "   ]}")));
 
-        PodManager manager = new PodManager(this.kubecfg, "config/grandcentral.jks", 100, 1, "./config/configuration.yml");
+        LinkedContainerManager manager = new PodManager(this.kubecfg, "config/grandcentral.jks", 100, 1, "./config/configuration.yml");
     }
 }

@@ -1,7 +1,6 @@
-package com.o19s.grandcentral.kubernetes;
+package com.o19s.grandcentral.dockercloud;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -12,8 +11,6 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
-import javax.net.ssl.SSLContext;
-
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
@@ -23,19 +20,11 @@ import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
-import org.apache.http.config.Registry;
-import org.apache.http.config.RegistryBuilder;
-import org.apache.http.conn.HttpClientConnectionManager;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.socket.LayeredConnectionSocketFactory;
-import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
 import org.apache.http.entity.ByteArrayEntity;
+import org.apache.http.impl.auth.BasicScheme;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
-import org.apache.http.ssl.SSLContexts;
 import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,17 +36,23 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.o19s.grandcentral.http.HttpDelete; // IMPORTANT, allows DELETE requests with bodies
+import com.o19s.grandcentral.kubernetes.Pod;
+import com.o19s.grandcentral.kubernetes.LinkedContainerManager;
 
 /**
- * Manages all pods present within a namespace
+ * Manages all stacks present within a namespace
+ * 
+ * Currently reusing the K8N Pod object.
+ * Should be implementing some sort of interface along with PodManager!
+ * Using the word Stack and Pod interchangable right now!
  */
-public class PodManager implements LinkedContainerManager {
-  private static final Logger LOGGER = LoggerFactory.getLogger(PodManager.class);
+public class StackManager implements LinkedContainerManager {
+  private static final Logger LOGGER = LoggerFactory.getLogger(StackManager.class);
 
   private long lastRefresh;
   private static final Map<String, Pod> pods = new HashMap<>();
 
-  private KubernetesConfiguration k8sConfiguration;
+  private DockercloudConfiguration dockercloudConfiguration;
 
   private long refreshIntervalInMs;
   private int maximumPodCount;
@@ -69,7 +64,7 @@ public class PodManager implements LinkedContainerManager {
   private final YAMLFactory yamlFactory = new YAMLFactory();
   private final ObjectMapper jsonObjectMapper = new ObjectMapper(jsonFactory);
   private final ObjectMapper yamlObjectMapper = new ObjectMapper(yamlFactory);
-  private final ObjectNode podDefinition;
+  private final ObjectNode podDefinition = null;
 
   static final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
   static final Lock readLock = readWriteLock.readLock();
@@ -83,49 +78,53 @@ public class PodManager implements LinkedContainerManager {
    * @param refreshIntervalInMs Interval with which to refresh the pods
    * @param podYamlPath the location of the yaml config for the application pod
    */
-  public PodManager(KubernetesConfiguration k8sConfiguration,
-                    String keystorePath,
+  public StackManager(DockercloudConfiguration dockercloudConfiguration,
+  
                     long refreshIntervalInMs,
-                    int maximumPodCount, String podYamlPath) throws IOException {
+                    int maximumPodCount) throws IOException {
     lastRefresh = 0;
 
-    this.k8sConfiguration = k8sConfiguration;
+    this.dockercloudConfiguration = dockercloudConfiguration;
 
     this.refreshIntervalInMs = refreshIntervalInMs;
     this.maximumPodCount = maximumPodCount;
 
-    podDefinition = jsonObjectMapper.createObjectNode();
-    podDefinition.setAll((ObjectNode) yamlObjectMapper.readTree(new File(podYamlPath)));
+  //  podDefinition = jsonObjectMapper.createObjectNode();
+//    podDefinition.setAll((ObjectNode) yamlObjectMapper.readTree(new File(podYamlPath)));
 
-    LOGGER.info("Loaded Pod Definition: " + podDefinition);
+    LOGGER.info("Loaded Pod Definition: " /*+ podDefinition*/);
 
     try {
       // Setup SSL and plain connection socket factories
-      SSLContext sslContext = SSLContexts.custom()
+/*      SSLContext sslContext = null; SSLContexts.custom()
           .loadTrustMaterial(new File(keystorePath), "changeit".toCharArray())
           .build();
+          */
 
-      LayeredConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslContext);
-      PlainConnectionSocketFactory plainsf = PlainConnectionSocketFactory.getSocketFactory();
-
+  //    LayeredConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(sslContext);
+    //  PlainConnectionSocketFactory plainsf = PlainConnectionSocketFactory.getSocketFactory();
+/*
       Registry<ConnectionSocketFactory> r = RegistryBuilder.<ConnectionSocketFactory>create()
           .register("http", plainsf)
           .register("https", sslsf)
           .build();
       HttpClientConnectionManager cm = new PoolingHttpClientConnectionManager(r);
+      */
 
       // Build the HTTP Client
-      httpClient = HttpClients.custom()
-          .setConnectionManager(cm)
-          .build();
+      httpClient = HttpClients.createDefault();
+//      httpClient = HttpClients.custom()
+  //        .setConnectionManager(cm)
+    //      .build();
 
       // Configure K8S HTTP Context (Authentication)
       httpContext = HttpClientContext.create();
-      CredentialsProvider k8sCredentialsProvider = new BasicCredentialsProvider();
-      k8sCredentialsProvider.setCredentials(
-          new AuthScope(k8sConfiguration.getMasterIp(), 443),
-          new UsernamePasswordCredentials(k8sConfiguration.getUsername(), k8sConfiguration.getPassword()));
-      httpContext.setCredentialsProvider(k8sCredentialsProvider);
+      CredentialsProvider dockercloudCredentialsProvider = new BasicCredentialsProvider();
+      dockercloudCredentialsProvider.setCredentials(
+          new AuthScope(dockercloudConfiguration.getHostname(), 80),
+          new UsernamePasswordCredentials(dockercloudConfiguration.getUsername(), dockercloudConfiguration.getApikey()));
+      httpContext.setCredentialsProvider(dockercloudCredentialsProvider);
+      
     } catch (Exception e) {
       LOGGER.error("Error configuring HTTP clients", e);
     }
@@ -134,11 +133,12 @@ public class PodManager implements LinkedContainerManager {
     refreshPods();
   }
 
-  /* (non-Javadoc)
- * @see com.o19s.grandcentral.kubernetes.StuffManagerInterfaceNeedBetterName#get(java.lang.String)
- */
-  @Override
-public Pod get(String dockerTag) throws IOException {
+  /**
+   * Get pod information for the given name
+   * @param dockerTag Git hash / name of the pod to return
+   * @return The pod which matches the given key.
+   */
+  public Pod get(String dockerTag) throws IOException {
     Pod pod = null;
 
     // Force a refresh of the data from K8S if the interval has passed
@@ -159,11 +159,12 @@ public Pod get(String dockerTag) throws IOException {
     return pod;
   }
 
-  /* (non-Javadoc)
- * @see com.o19s.grandcentral.kubernetes.StuffManagerInterfaceNeedBetterName#contains(java.lang.String)
- */
-  @Override
-public Boolean contains(String dockerTag) {
+  /**
+   * Does the provided dockerTag currently exist within the cluster
+   * @param dockerTag Git hash / name of the pod to check
+   * @return True if the pod exists
+   */
+  public Boolean contains(String dockerTag) {
     readLock.lock();
     boolean contains = false;
 
@@ -176,11 +177,11 @@ public Boolean contains(String dockerTag) {
     return contains;
   }
 
-  /* (non-Javadoc)
- * @see com.o19s.grandcentral.kubernetes.StuffManagerInterfaceNeedBetterName#add(java.lang.String)
- */
-  @Override
-public Pod add(String dockerTag) throws Exception {
+  /**
+   * Adds a pod with the docker tag
+   * @param dockerTag Git hash / name of the pod to deploy
+   */
+  public Pod add(String dockerTag) throws Exception {
     if (!contains(dockerTag)) {
       Pod pod = null;
 
@@ -188,8 +189,28 @@ public Pod add(String dockerTag) throws Exception {
       readLock.lock();
 
       try {
+    	  
+    	  ByteArrayOutputStream baos = new ByteArrayOutputStream(); 
+    	  
+    	  String s = String.join("\n"
+    		         , "{"
+    		         , "	\"name\": \"" + dockercloudConfiguration.getNamespace() + "-" + dockerTag + "\","
+    		         , "	\"services\": ["
+    		         , "		{"
+    		         , "			\"name\":\"hello-world\","  
+    		         , "			\"image\":\"dep4b/datastart:v1\","  
+    		         ,"				\"ports\": ["
+    		         , "				\"81:8080\""      		         
+    		         , "			]"    		         
+    		         , "		}"    		         
+    		         , "	]"
+    		         , "}"
+    		);
+    	  
+    	  baos.write(s.getBytes());
+    	  
         // Schedule the new Pod
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
+/*       
         JsonGenerator generator = jsonFactory.createGenerator(baos);
 
         ObjectNode newPodDefinition = podDefinition.deepCopy();
@@ -207,15 +228,29 @@ public Pod add(String dockerTag) throws Exception {
         generator.writeObject(newPodDefinition);
         generator.flush();
         generator.close();
+*/
+    	  HttpPost stackCreate = new HttpPost(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/");
+    	  stackCreate.addHeader("accept", "application/json");
+    	  stackCreate.addHeader(BasicScheme.authenticate(
+    	    		 new UsernamePasswordCredentials(dockercloudConfiguration.getUsername(), dockercloudConfiguration.getApikey()),
+    	    		 "UTF-8", false));
 
-        HttpPost podSchedule = new HttpPost("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
-        HttpEntity podJson = new ByteArrayEntity(baos.toByteArray());
-        podSchedule.setEntity(podJson);
 
-        try (CloseableHttpResponse response = httpClient.execute(podSchedule, httpContext)) {
+    	HttpEntity podJson = new ByteArrayEntity(baos.toByteArray());
+    	stackCreate.setEntity(podJson);
+
+    	String podUUID = null;
+        try (CloseableHttpResponse response = httpClient.execute(stackCreate)) {
           int status = response.getStatusLine().getStatusCode();
+          HttpEntity entity = response.getEntity();
+          InputStream responseBody = entity.getContent();
+          	
+              JsonNode rootNode = jsonObjectMapper.readTree(responseBody);
+              JsonNode objectsNode = rootNode.get("objects");
           if (status == HttpStatus.SC_CREATED) {
-            LOGGER.info("Pod " + dockerTag + ": Scheduled");
+            LOGGER.info("Pod " + dockerTag + ": Scheduled");     
+            podUUID = rootNode.get("uuid").asText();
+            
           } else if (status == HttpStatus.SC_CONFLICT) {
             LOGGER.info("Pod " + dockerTag + ": Already running");
           } else {
@@ -227,19 +262,65 @@ public Pod add(String dockerTag) throws Exception {
 
         // Wait until Pod is running
         boolean podRunning = false;
-        HttpGet podStatusGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
+        boolean podCreated = true;
+        
+        podRunning = true;
+        // Here should be a check to see if it the stack was created, not sure how long it takes!!!
+        
+        
+        if (podCreated && podUUID != null){
+        	// Start the stack
+        	HttpPost stackStart = new HttpPost(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/" + podUUID + "/start/");
+        	stackStart.addHeader("accept", "application/json");
+        	stackStart.addHeader(BasicScheme.authenticate(
+      	    		 new UsernamePasswordCredentials(dockercloudConfiguration.getUsername(), dockercloudConfiguration.getApikey()),
+      	    		 "UTF-8", false));
+        
+      	try (CloseableHttpResponse response = httpClient.execute(stackStart)) {
+            int status = response.getStatusLine().getStatusCode();
+            HttpEntity entity = response.getEntity();
+            InputStream responseBody = entity.getContent();
+            JsonNode rootNode = jsonObjectMapper.readTree(responseBody);
+      	}
+      	catch (IOException ioe) {
+            LOGGER.error("Pod " + dockerTag + ": Error scheduling pod", ioe);
+          }
+      	
+        
+        }
+        
+        
+
+        
         do {
+            HttpGet stackStatus = new HttpGet(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/" + podUUID);
+            stackStatus.addHeader("accept", "application/json");
+            stackStatus.addHeader(BasicScheme.authenticate(
+            		 new UsernamePasswordCredentials(dockercloudConfiguration.getUsername(), dockercloudConfiguration.getApikey()),
+            		 "UTF-8", false));
+
           LOGGER.info("Pod " + dockerTag + ": Waiting for start");
           Thread.sleep(1000);
 
-          try (CloseableHttpResponse response = httpClient.execute(podStatusGet, httpContext)) {
+          try (CloseableHttpResponse response = httpClient.execute(stackStatus)) {
             HttpEntity entity = response.getEntity();
             try (InputStream responseBody = entity.getContent()) {
-              pod = PodFactory.podFromJson(jsonObjectMapper.readTree(responseBody));
+            	
+    
+               JsonNode rootNode = jsonObjectMapper.readTree(responseBody);
+               String name = rootNode.get("name").asText();
+    	       String status = rootNode.get("state").asText();
+    	       JsonNode servicesNode = rootNode.get("services");
 
+    	        
+    	       String serviceURI = servicesNode.get(0).asText();
+    	       String publicDNS = getDNSForStack(serviceURI);
+    	        
+    	      pod = new Pod(dockerTag, publicDNS, status);
+    	        
               podRunning = pod != null && pod.isRunning();
             } catch (IOException ioe) {
-              LOGGER.error("Pod " + dockerTag + ": Error checking pod status", ioe);
+              LOGGER.error("Pod " + dockerTag + ": Error getting DNS for pod", ioe);
             }
           }
         } while (!podRunning);
@@ -277,7 +358,7 @@ public Pod add(String dockerTag) throws Exception {
         generator.writeObject(root);
         generator.flush();
 
-        HttpDelete podDelete = new HttpDelete("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods/" + dockerTag);
+        HttpDelete podDelete = new HttpDelete("https://" /*+ k8sConfiguration.getMasterIp()*/ + ":443/api/v1/namespaces/" /*+ k8sConfiguration.getNamespace() */+ "/pods/" + dockerTag);
         podDelete.setEntity(new ByteArrayEntity(baos.toByteArray()));
 
         try (CloseableHttpResponse response = httpClient.execute(podDelete, httpContext)) {
@@ -348,23 +429,49 @@ public Pod add(String dockerTag) throws Exception {
    * @throws IOException
    */
   private void refreshPods() throws IOException {
-    HttpGet podsGet = new HttpGet(k8sConfiguration.getProtocol() + "://" + k8sConfiguration.getMasterIp() + "/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
+    HttpGet stacksGet = new HttpGet(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/");
+    stacksGet.addHeader("accept", "application/json");
+    stacksGet.addHeader(BasicScheme.authenticate(
+    		 new UsernamePasswordCredentials(dockercloudConfiguration.getUsername(), dockercloudConfiguration.getApikey()),
+    		 "UTF-8", false));
 
-    try (CloseableHttpResponse response = httpClient.execute(podsGet, httpContext)) {
+//    try (CloseableHttpResponse response = httpClient.execute(stacksGet, httpContext)) {
+    try (CloseableHttpResponse response = httpClient.execute(stacksGet)) {
+    	
       HttpEntity entity = response.getEntity();
       if (entity != null) {
         // Grab the write lock
+    	 System.out.println("writelock:" + writeLock.toString());
         writeLock.lock();
 
         try (InputStream responseBody = entity.getContent()) {
+        	
           JsonNode rootNode = jsonObjectMapper.readTree(responseBody);
-          JsonNode itemsNode = rootNode.get("items");
+          JsonNode objectsNode = rootNode.get("objects");
 
           // Update our internal pod hash
           Set<String> toDelete = new HashSet<>(pods.size());
           toDelete.addAll(pods.keySet());
-          for (int i = 0; i < itemsNode.size(); i++) {
-            Pod pod = PodFactory.podFromJson(itemsNode.get(i));
+          for (int i = 0; i < objectsNode.size(); i++) {
+        	  Pod pod = null;
+        	  String name = objectsNode.get(i).get("name").asText();
+        	  String dockerTag = null;
+        	  String podName = name;
+        	  String state = objectsNode.get(i).get("state").asText();
+        	  String servicesURI = objectsNode.get(i).get("services").get(0).asText();
+        	  
+        	  if (name.indexOf("-")> -1){
+        		  dockerTag = name.split("-")[1];        		  
+        	  }
+        	  
+        	  if (dockerTag != null && servicesURI != "" && podName.contains(dockercloudConfiguration.getNamespace())){
+        		  
+        		  String publicDNS = getDNSForStack(servicesURI);
+        		  
+        		  pod = new Pod(dockerTag, publicDNS, state);
+        	  }
+        	  
+        	  
 
             if (pod != null && pod.isRunning()) {
               // The pod is valid and should be managed
@@ -384,8 +491,8 @@ public Pod add(String dockerTag) throws Exception {
           }
 
           // Delete pods that have been removed (delete refers to our hash, not k8s). This calls remove on the hash, not the manager.
-          toDelete.forEach((dockerTag) -> LOGGER.info("Refresh: Removing pod " + dockerTag + " from internal hash"));
-          toDelete.forEach(pods::remove);
+//          toDelete.forEach((dockerTag) -> LOGGER.info("Refresh: Removing pod " + dockerTag + " from internal hash"));
+//          toDelete.forEach(pods::remove);
         } catch (IOException ioe) {
           LOGGER.error("Pod Refresh: Error parsing pods", ioe);
         } finally {
@@ -397,9 +504,36 @@ public Pod add(String dockerTag) throws Exception {
     }
 
     // Cleanup old pods
-    removeExtraPods();
+//    removeExtraPods();
 
     // Update the lastRefresh time
     lastRefresh = DateTime.now().getMillis();
+  }
+  
+  private String getDNSForStack(String serviceURI){
+	  String publicDNS = null;
+	  HttpGet stackServices = new HttpGet(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + serviceURI);
+      stackServices.addHeader("accept", "application/json");
+      stackServices.addHeader(BasicScheme.authenticate(
+      		 new UsernamePasswordCredentials(dockercloudConfiguration.getUsername(), dockercloudConfiguration.getApikey()),
+      		 "UTF-8", false));
+      try (CloseableHttpResponse response2 = httpClient.execute(stackServices)) {
+          HttpEntity entity2 = response2.getEntity();
+          try (InputStream responseBody2 = entity2.getContent()) {
+          	
+   
+              JsonNode rootNode2 = jsonObjectMapper.readTree(responseBody2);
+               publicDNS = rootNode2.get("public_dns").asText();
+  	         	                    
+          } catch (IOException ioe) {
+            LOGGER.error("Pod at " + serviceURI + ": Error starting pod", ioe);
+          }
+        
+      
+  } catch (IOException ioe) {
+    LOGGER.error("Pod " + serviceURI + ": Error getting public dns for pod", ioe);
+  }
+      return publicDNS;
+  
   }
 }

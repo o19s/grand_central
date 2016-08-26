@@ -60,6 +60,19 @@ sudo route add -net 10.2.47 172.17.4.99
 ## Local K8S Certificate
 The K8S cluster has a self-signed SSL certificate. It must be added to a keystore as a trusted certificate before requests are permitted.
 
+To retrieve K8S master ip, assuming using GCP, you need to first get your username/password via:
+
+```
+gcloud container clusters describe hello-zeppelin --zone us-central1-f
+```
+
+Then you can look up the IP of the K8S dashboard via
+
+```
+kubectl cluster-info | grep kubernetes-dashboard
+```
+
+
 **OS X**
 
 ```

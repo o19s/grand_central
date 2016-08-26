@@ -1,7 +1,8 @@
 package com.o19s.grandcentral.gcloud;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
 import io.dropwizard.jackson.JsonSnakeCase;
+
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonSnakeCase
 public class GCloudConfiguration {
