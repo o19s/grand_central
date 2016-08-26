@@ -12,7 +12,6 @@ import com.o19s.grandcentral.gcloud.GCloudRegistry;
 import com.o19s.grandcentral.healthchecks.ContainerRegistryHealthCheck;
 import com.o19s.grandcentral.healthchecks.KubernetesMasterHealthCheck;
 import com.o19s.grandcentral.kubernetes.PodManager;
-import com.o19s.grandcentral.kubernetes.LinkedContainerManager;
 import com.o19s.grandcentral.servlets.PodProxyServlet;
 import com.o19s.grandcentral.servlets.PodServletFilter;
 

@@ -1,6 +1,8 @@
-package com.o19s.grandcentral.kubernetes;
+package com.o19s.grandcentral;
 
 import java.io.IOException;
+
+import com.o19s.grandcentral.kubernetes.Pod;
 
 public interface LinkedContainerManager {
 

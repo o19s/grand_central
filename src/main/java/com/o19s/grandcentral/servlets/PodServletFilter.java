@@ -15,8 +15,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.o19s.grandcentral.ImageRegistry;
+import com.o19s.grandcentral.LinkedContainerManager;
 import com.o19s.grandcentral.kubernetes.Pod;
-import com.o19s.grandcentral.kubernetes.LinkedContainerManager;
 
 /**
  * Filter which drops requests that do not match the appropriate host header format.
