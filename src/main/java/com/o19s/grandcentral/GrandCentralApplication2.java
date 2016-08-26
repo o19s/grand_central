@@ -48,18 +48,18 @@ public class GrandCentralApplication2 extends Application<GrandCentralConfigurat
         */
 
     // Build the StackManager
-	LinkedContainerManager stuffManagerInterfaceNeedBetterName = new StackManager(
+	LinkedContainerManager linkedContainerManager = new StackManager(
         config.getDockercloudConfiguration(),
         config.getRefreshIntervalInMs(),
         config.getMaximumStackCount()
         );
    
 
-    ImageRegistry gCloudRegistry = new DockercloudRegistry(config.getDockercloudConfiguration());
+    ImageRegistry imageRegistry = new DockercloudRegistry(config.getDockercloudConfiguration());
 
 
     // Define the filter and proxy
-    final PodServletFilter psv = new PodServletFilter(config.getGrandcentralDomain(), stuffManagerInterfaceNeedBetterName, gCloudRegistry);
+    final PodServletFilter psv = new PodServletFilter(config.getGrandcentralDomain(), linkedContainerManager, imageRegistry);
     final PodProxyServlet pps = new PodProxyServlet(config.getPodPort());
 
     // Disable Jersey in the proxy environment

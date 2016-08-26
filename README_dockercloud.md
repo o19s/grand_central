@@ -1,10 +1,13 @@
 # Grand Central
-*Quepid's automated review deployment tool. Gut-check in the cloud*
+*Your automated review deployment tool. Gut-check in the cloud*
 
 Grand Central is a tool for automated deployment and cleanup of developer review environments / containers. Requests are parsed and routed based on their URL structure. If the target container exists the request is proxied along. If not Grand Central will spin up a container and forward the request once it comes online.
 
 ## URL Structure
-The appropriate container is determined by parsing the first part of the domain name. `*.review.quepid.com` in DNS is directed at the Grand Central service. The application parses the domain name to retrieve the appropriate Git version to deploy. `http://db139cf.review.quepid.com/secure` would route to a container running version `db139cf` if it exists.
+
+URLs tells Grand Central how to route to the correct container.  A url like `db139cf.datastart.grandcentral.com` in DNS is directed at the Grand Central service.  Grand Central parses out the first part of the name, `db139cf` to retrieve the appropriate Git version to deploy. 
+
+The appropriate container is determined by parsing the first part of the domain name. `*.review.grandcentral.com` in DNS is directed at the Grand Central service. The application parses the domain name to retrieve the appropriate Git version to deploy. `http://db139cf.review.quepid.com/secure` would route to a container running version `db139cf` if it exists.
 
 ## Request Flow
 When a request is received by the system the following processing takes place.
@@ -16,8 +19,7 @@ When a request is received by the system the following processing takes place.
 1. Verify version exists in Container Registry. *We can't deploy a version which doesn't exist.
    * If so, continue
    * If not, 404
-1. Create DockerCloud Stack (?) containing app version, database, and loader
-1. Create Service for Stack (routes requests internally within the cluster)
+1. Create DockerCloud Stack containing everything required.  Stack's are named after the git version.
 1. Proxy the original request
 
 *Note* that all requests will have some metrics stored to determine activity for a give stack. This is useful when reaping old stacks.
@@ -50,6 +52,14 @@ There is a hard limit to the number of simultaneous stacks running on the cluste
 ## curling
 
 curl --user username:apikey "https://cloud.docker.com/api/app/v1/stack/"
+
+## Local Development
+Add something like below to your `/etc/hosts` file.  This will let you simulate hitting a deployed GrandCentral
+server, though only on the specified FQDN!
+
+```
+127.0.0.1 v1.datastart.grandcentral.com
+```
 
 ## Implementation
 
