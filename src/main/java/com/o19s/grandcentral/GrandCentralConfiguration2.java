@@ -45,15 +45,7 @@ public class GrandCentralConfiguration2 extends Configuration {
   @NotNull
   private DockercloudConfiguration dockercloud = new DockercloudConfiguration();
   
-  /*
-  @Valid
-  @NotNull
-  private KubernetesConfiguration kubernetes = new KubernetesConfiguration();
 
-  @Valid
-  @NotNull
-  private GCloudConfiguration gcloud = new GCloudConfiguration();
-*/
   @JsonProperty
   public long getJanitorCleanupThreshold() {
     return janitorCleanupThreshold;
@@ -97,17 +89,6 @@ public class GrandCentralConfiguration2 extends Configuration {
   }
 
 
-/*
-  @JsonProperty
-  public int getPodPort() {
-    return podPort;
-  }
-
-  @JsonProperty
-  public void setPodPort(int podPort) {
-    this.podPort = podPort;
-  }
-*/
   @JsonProperty("dockercloud")
   public DockercloudConfiguration getDockercloudConfiguration() {
     return dockercloud;
@@ -117,17 +98,7 @@ public class GrandCentralConfiguration2 extends Configuration {
   public void setDockercloudConfiguration(DockercloudConfiguration factory) {
     this.dockercloud = factory;
   }
-/*
-  @JsonProperty("gcloud")
-  public GCloudConfiguration getGCloudConfiguration() {
-    return gcloud;
-  }
 
-  @JsonProperty("gcloud")
-  public void setGCloudConfiguration(GCloudConfiguration gcloud) {
-    this.gcloud = gcloud;
-  }
-  */
 
   @JsonProperty
   public int getPodPort() {
