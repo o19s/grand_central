@@ -7,7 +7,7 @@
   <name>Grand Central</name>
   <groupId>com.o19s</groupId>
   <artifactId>grand-central</artifactId>
-  <version>1.0-SNAPSHOT</version>
+  <version>1.1-SNAPSHOT</version>
 
   <properties>
     <dropwizard.version>1.0.0</dropwizard.version>
