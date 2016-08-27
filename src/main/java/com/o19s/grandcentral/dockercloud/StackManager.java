@@ -61,10 +61,8 @@ public class StackManager implements LinkedContainerManager {
   private HttpClientContext httpContext;
 
   private final JsonFactory jsonFactory = new JsonFactory();
-  private final YAMLFactory yamlFactory = new YAMLFactory();
   private final ObjectMapper jsonObjectMapper = new ObjectMapper(jsonFactory);
-  private final ObjectMapper yamlObjectMapper = new ObjectMapper(yamlFactory);
-  private final ObjectNode podDefinition = null;
+
 
   static final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
   static final Lock readLock = readWriteLock.readLock();
@@ -209,26 +207,6 @@ public class StackManager implements LinkedContainerManager {
     	  
     	  baos.write(s.getBytes());
     	  
-        // Schedule the new Pod
-/*       
-        JsonGenerator generator = jsonFactory.createGenerator(baos);
-
-        ObjectNode newPodDefinition = podDefinition.deepCopy();
-        ((ObjectNode) newPodDefinition.get("metadata")).put("name", dockerTag);
-        String image;
-        for (JsonNode containerNode : newPodDefinition.get("spec").get("containers")) {
-          image = containerNode.get("image").asText();
-          if (image.endsWith("__DOCKER_TAG__")) {
-            ((ObjectNode) containerNode).put("image", image.replace("__DOCKER_TAG__", dockerTag));
-          }
-        }
-
-        LOGGER.info("Generated definition for \"" + dockerTag + "\": " + newPodDefinition);
-
-        generator.writeObject(newPodDefinition);
-        generator.flush();
-        generator.close();
-*/
     	  HttpPost stackCreate = new HttpPost(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/");
     	  stackCreate.addHeader("accept", "application/json");
     	  stackCreate.addHeader(BasicScheme.authenticate(
@@ -453,12 +431,16 @@ public class StackManager implements LinkedContainerManager {
           Set<String> toDelete = new HashSet<>(pods.size());
           toDelete.addAll(pods.keySet());
           for (int i = 0; i < objectsNode.size(); i++) {
+        	  JsonNode serviceNode = objectsNode.get(i);
         	  Pod pod = null;
-        	  String name = objectsNode.get(i).get("name").asText();
+        	  String name = serviceNode.get("name").asText();
+        	  
+        	  LOGGER.info("Refresh: Checking if stack " + name + " is jumping aboard the Grand Central Express!");
+        	  
         	  String dockerTag = null;
         	  String podName = name;
-        	  String state = objectsNode.get(i).get("state").asText();
-        	  String servicesURI = objectsNode.get(i).get("services").get(0).asText();
+        	  String state = serviceNode.get("state").asText();
+        	  String servicesURI = serviceNode.get("services").get(0).asText();
         	  
         	  if (name.indexOf("-")> -1){
         		  dockerTag = name.split("-")[1];        		  

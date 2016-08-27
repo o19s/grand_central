@@ -7,15 +7,24 @@ import org.junit.Ignore;
 import org.junit.Test;
 
 import com.jaunt.UserAgent;
-import com.jaunt.component.Label;
 
 public class DockercloudRegistryTest {
 
 	
 	@Test
-	@Ignore
+//	@Ignore
 	public void testCheck() throws Exception {
-		DockercloudRegistry dockercloudRegistry = new DockercloudRegistry(null);
+		
+		DockercloudConfiguration dockercloudConfig = new DockercloudConfiguration();
+		dockercloudConfig.setProtocol("https");
+		dockercloudConfig.setHostname("cloud.docker.com");
+		dockercloudConfig.setNamespace("datastart");
+		dockercloudConfig.setUsername("dep4b");
+		dockercloudConfig.setApikey("YOUR_API_KEY");
+		
+		
+		
+		DockercloudRegistry dockercloudRegistry = new DockercloudRegistry(dockercloudConfig);
 		
 		assertTrue(dockercloudRegistry.imageExistsInRegistry("dep4b/datastart:v1"));
 		assertFalse(dockercloudRegistry.imageExistsInRegistry("dep4b/datastart:v2"));

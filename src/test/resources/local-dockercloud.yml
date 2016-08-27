@@ -6,6 +6,7 @@ refresh_interval_in_ms: 300000
 pod_port: 81
 
 dockercloud:
+  protocol: https
   hostname: cloud.docker.com
   namespace: datastart
   username: dep4b
