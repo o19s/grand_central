@@ -11,6 +11,7 @@ import java.util.Set;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 
+import org.apache.commons.lang3.StringUtils;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
@@ -440,13 +441,16 @@ public class StackManager implements LinkedContainerManager {
         	  String dockerTag = null;
         	  String podName = name;
         	  String state = serviceNode.get("state").asText();
-        	  String servicesURI = serviceNode.get("services").get(0).asText();
+        	  String servicesURI = null;
+        	  if (serviceNode.get("services").size()> 0){  // A stack that is starting up may not yet have services!
+        		  servicesURI = serviceNode.get("services").get(0).asText();
+        	  }
         	  
         	  if (name.indexOf("-")> -1){
         		  dockerTag = name.split("-")[1];        		  
         	  }
         	  
-        	  if (dockerTag != null && servicesURI != "" && podName.contains(dockercloudConfiguration.getNamespace())){
+        	  if (dockerTag != null && StringUtils.isBlank(servicesURI)  && podName.contains(dockercloudConfiguration.getNamespace())){
         		  
         		  String publicDNS = getDNSForStack(servicesURI);
         		  
