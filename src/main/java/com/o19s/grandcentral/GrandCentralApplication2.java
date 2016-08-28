@@ -1,6 +1,8 @@
 package com.o19s.grandcentral;
 
 import io.dropwizard.Application;
+import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
+import io.dropwizard.configuration.SubstitutingSourceProvider;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 
@@ -26,7 +28,15 @@ public class GrandCentralApplication2 extends Application<GrandCentralConfigurat
   }
 
   @Override
-  public void initialize(Bootstrap<GrandCentralConfiguration2> bootstrap) {}
+  public void initialize(Bootstrap<GrandCentralConfiguration2> bootstrap) {
+	// Enable variable substitution with environment variables
+      bootstrap.setConfigurationSourceProvider(
+              new SubstitutingSourceProvider(bootstrap.getConfigurationSourceProvider(),
+                                                 new EnvironmentVariableSubstitutor(false)
+              )
+      );
+	  
+  }
 
   @Override
   public void run(GrandCentralConfiguration2 config, Environment environment) throws Exception {

@@ -9,5 +9,5 @@ dockercloud:
   protocol: https
   hostname: cloud.docker.com
   namespace: datastart
-  username: dep4b
-  apikey: YOUR_API_KEY
+  username: ${DOCKERCLOUD_USERNAME}
+  apikey: ${DOCKERCLOUD_APIKEY}
