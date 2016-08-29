@@ -450,7 +450,7 @@ public class StackManager implements LinkedContainerManager {
         		  dockerTag = name.split("-")[1];        		  
         	  }
         	  
-        	  if (dockerTag != null && StringUtils.isBlank(servicesURI)  && podName.contains(dockercloudConfiguration.getNamespace())){
+        	  if (dockerTag != null && !StringUtils.isBlank(servicesURI)  && podName.contains(dockercloudConfiguration.getNamespace())){
         		  
         		  String publicDNS = getDNSForStack(servicesURI);
         		  
