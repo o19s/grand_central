@@ -1,6 +1,7 @@
 package com.o19s.grandcentral.dockercloud;
 
 import java.io.ByteArrayOutputStream;
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Arrays;
@@ -63,6 +64,7 @@ public class StackManager implements LinkedContainerManager {
 
   private final JsonFactory jsonFactory = new JsonFactory();
   private final ObjectMapper jsonObjectMapper = new ObjectMapper(jsonFactory);
+  private final ObjectNode stackDefinition;
 
 
   static final ReentrantReadWriteLock readWriteLock = new ReentrantReadWriteLock(true);
@@ -70,12 +72,10 @@ public class StackManager implements LinkedContainerManager {
   static final Lock writeLock = readWriteLock.writeLock();
 
   /**
-   * Instantiates a new manages with the specified settings
-   * @param k8sConfiguration Kubernetes Configuration
-   * @param keystorePath Path to the Java Keystore containing trusted certificates
-   * @param maximumPodCount Maximum number of pods to ever have running at once
-   * @param refreshIntervalInMs Interval with which to refresh the pods
-   * @param podYamlPath the location of the yaml config for the application pod
+   * Instantiates a new manages with the specified settings.  
+   * TODO think about refactoring StackManager to being "LinkedContainerManager" and abstract
+   * the specific HTTP calls away to a seperate DockerCloudAPI so we could drop in a MockDockerCloudAPI.
+   * 
    */
   public StackManager(DockercloudConfiguration dockercloudConfiguration,
   
@@ -88,10 +88,10 @@ public class StackManager implements LinkedContainerManager {
     this.refreshIntervalInMs = refreshIntervalInMs;
     this.maximumPodCount = maximumPodCount;
 
-  //  podDefinition = jsonObjectMapper.createObjectNode();
-//    podDefinition.setAll((ObjectNode) yamlObjectMapper.readTree(new File(podYamlPath)));
+    stackDefinition = jsonObjectMapper.createObjectNode();
+    stackDefinition.setAll((ObjectNode)jsonObjectMapper.readTree(new File(dockercloudConfiguration.getStackJsonPath())));
 
-    LOGGER.info("Loaded Pod Definition: " /*+ podDefinition*/);
+    LOGGER.info("Loaded Stack Definition: " + stackDefinition);
 
     try {
       // Setup SSL and plain connection socket factories
@@ -188,25 +188,26 @@ public class StackManager implements LinkedContainerManager {
       readLock.lock();
 
       try {
+    	// Schedule the new Stack
+    	  ByteArrayOutputStream baos = new ByteArrayOutputStream();
+          JsonGenerator generator = jsonFactory.createGenerator(baos);
     	  
-    	  ByteArrayOutputStream baos = new ByteArrayOutputStream(); 
+    	  ObjectNode newStackDefinition = stackDefinition.deepCopy();
+          newStackDefinition.put("name", dockercloudConfiguration.getNamespace() + "-" + dockerTag);
+          
+          String image;
+          for (JsonNode serviceNode : newStackDefinition.get("services")) {
+            image = serviceNode.get("image").asText();
+            if (image.endsWith("__DOCKER_TAG__")) {
+              ((ObjectNode) serviceNode).put("image", image.replace("__DOCKER_TAG__", dockerTag));
+            }
+          }
+
+          LOGGER.info("Generated definition for \"" + dockerTag + "\": " + newStackDefinition);
     	  
-    	  String s = String.join("\n"
-    		         , "{"
-    		         , "	\"name\": \"" + dockercloudConfiguration.getNamespace() + "-" + dockerTag + "\","
-    		         , "	\"services\": ["
-    		         , "		{"
-    		         , "			\"name\":\"hello-world\","  
-    		         , "			\"image\":\"dep4b/datastart:v1\","  
-    		         ,"				\"ports\": ["
-    		         , "				\"81:8080\""      		         
-    		         , "			]"    		         
-    		         , "		}"    		         
-    		         , "	]"
-    		         , "}"
-    		);
-    	  
-    	  baos.write(s.getBytes());
+          generator.writeObject(newStackDefinition);
+          generator.flush();
+          generator.close();
     	  
     	  HttpPost stackCreate = new HttpPost(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/");
     	  stackCreate.addHeader("accept", "application/json");

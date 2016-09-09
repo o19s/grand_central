@@ -29,6 +29,10 @@ public class DockercloudConfiguration {
 
   // this can be null
   private String protocol;
+  
+  @NotNull
+  @NotEmpty
+  private String stackJsonPath;
 
   @JsonProperty
   public String getHostname() {
@@ -78,5 +82,15 @@ public class DockercloudConfiguration {
   @JsonProperty
   public void setNamespace(String namespace) {
     this.namespace = namespace;
+  }
+  
+  @JsonProperty
+  public String getStackJsonPath() {
+    return stackJsonPath;
+  }
+
+  @JsonProperty
+  public void setStackJsonPath(String stackJsonPath) {
+    this.stackJsonPath = stackJsonPath;
   }
 }
