@@ -44,8 +44,7 @@ public class DockercloudRegistry implements ImageRegistry {
 		boolean imageExists = false;
 		String podUUID = null;
 
-		String serviceName = "test-img-exst-" + dockercloudConfiguration.getStackExistsTestImage().replace("/", "-") + "-" + dockerTag;
-		serviceName = serviceName.replace('/', '-');
+		String serviceName = "chk-" + dockerTag;
 
 		String imageName = dockercloudConfiguration.getStackExistsTestImage() + ":" + dockerTag;
 		
@@ -68,6 +67,8 @@ public class DockercloudRegistry implements ImageRegistry {
 					+ "\",", "	\"image\": \"" + imageName + "\""
 					+ ",", "	\"run_command\": \"ls\""
 					, "}");
+			
+			LOGGER.info("Checking for " + imageName + " via " + s);
 			baos.write(s.getBytes());
 
 			HttpPost serviceCreate = new HttpPost(
@@ -99,7 +100,7 @@ public class DockercloudRegistry implements ImageRegistry {
 					LOGGER.info("Pod " + serviceName + ": Already running");
 				} else {
 					LOGGER.info("Pod " + serviceName + ": Not scheduled ("
-							+ response.getStatusLine().toString() + ")");
+							+ response.getStatusLine().toString() + ":" + rootNode+  ")");
 				}
 			} catch (IOException ioe) {
 				LOGGER.error("Pod " + serviceName + ": Error scheduling pod", ioe);
