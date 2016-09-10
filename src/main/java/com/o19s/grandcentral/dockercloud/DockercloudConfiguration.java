@@ -32,6 +32,10 @@ public class DockercloudConfiguration {
   
   @NotNull
   @NotEmpty
+  private String stackExistsTestImage;  // We do a hacky test of a image with a version to see if it exists or not.  what image?
+  
+  @NotNull
+  @NotEmpty
   private String stackJsonPath;
 
   @JsonProperty
@@ -92,5 +96,15 @@ public class DockercloudConfiguration {
   @JsonProperty
   public void setStackJsonPath(String stackJsonPath) {
     this.stackJsonPath = stackJsonPath;
+  }
+  
+  @JsonProperty
+  public String getStackExistsTestImage() {
+	return stackExistsTestImage;
+  }
+  
+  @JsonProperty
+  public void setStackExistsTestImage(String stackExistsTestImage) {
+	this.stackExistsTestImage = stackExistsTestImage;
   }
 }

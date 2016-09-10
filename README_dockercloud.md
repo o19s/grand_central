@@ -47,7 +47,9 @@ There is a hard limit to the number of simultaneous stacks running on the cluste
 * Security?!
 
 
-## curling
+## Curling
+
+curl --user username:apikey "https://cloud.docker.com/api/app/v1/stack/"
 
 curl --user username:apikey "https://cloud.docker.com/api/app/v1/stack/"
 
@@ -61,6 +63,7 @@ Add to make testing your local set up easier this to your `/etc/hosts` file:
 ```
 
 
+## Dockerizing GrandCentral
 
 
 ## Implementation

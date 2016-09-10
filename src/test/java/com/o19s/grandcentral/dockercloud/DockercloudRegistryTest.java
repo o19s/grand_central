@@ -18,13 +18,14 @@ public class DockercloudRegistryTest {
 		dockercloudConfig.setNamespace("datastart");
 		dockercloudConfig.setUsername("dep4b");
 		dockercloudConfig.setApikey("YOUR_API_KEY");
+		dockercloudConfig.setStackExistsTestImage("dep4b/datastart");
 		
 		
 		
 		DockercloudRegistry dockercloudRegistry = new DockercloudRegistry(dockercloudConfig);
 		
-		assertTrue(dockercloudRegistry.imageExistsInRegistry("dep4b/datastart:v1"));
-		assertFalse(dockercloudRegistry.imageExistsInRegistry("dep4b/datastart:v2"));
+		assertTrue(dockercloudRegistry.imageExistsInRegistry("v1"));
+		assertFalse(dockercloudRegistry.imageExistsInRegistry("v2"));
 		
 	}
 

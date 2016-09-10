@@ -1,11 +1,10 @@
 {
-  "name": "echostack",
+  "name": "mysql",
   "services": [
       {
-        "name":"echoheaders",
-        "please_note": "Grand Central replaces __DOCKER_TAG__ in the image with the version",
-        "image": "gcr.io/google_containers/echoserver:__DOCKER_TAG__",
-        "ports": ["8080:8080"]
+        "name":"mysql",
+        "image": "mysql:__DOCKER_TAG__",
+        "environment": ["MYSQL_ROOT_PASSWORD=root"]
       }
   ]
 }

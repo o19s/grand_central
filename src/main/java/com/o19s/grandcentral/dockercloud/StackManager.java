@@ -142,7 +142,11 @@ public class StackManager implements LinkedContainerManager {
 
     // Force a refresh of the data from K8S if the interval has passed
     if (DateTime.now().getMillis() - lastRefresh > refreshIntervalInMs) {
-      refreshPods();
+      try {
+		refreshPods();
+	} catch (Exception e) {
+		throw new IOException(e);
+	}
     }
 
 
@@ -193,7 +197,7 @@ public class StackManager implements LinkedContainerManager {
           JsonGenerator generator = jsonFactory.createGenerator(baos);
     	  
     	  ObjectNode newStackDefinition = stackDefinition.deepCopy();
-          newStackDefinition.put("name", dockercloudConfiguration.getNamespace() + "-" + dockerTag);
+          newStackDefinition.put("name", dockercloudConfiguration.getNamespace() + "-" + dockerTag.replace(".", "-"));
           
           String image;
           for (JsonNode serviceNode : newStackDefinition.get("services")) {
@@ -219,20 +223,25 @@ public class StackManager implements LinkedContainerManager {
     	HttpEntity podJson = new ByteArrayEntity(baos.toByteArray());
     	stackCreate.setEntity(podJson);
 
+    	boolean podCreated = false;
     	String podUUID = null;
         try (CloseableHttpResponse response = httpClient.execute(stackCreate)) {
           int status = response.getStatusLine().getStatusCode();
           HttpEntity entity = response.getEntity();
           InputStream responseBody = entity.getContent();
-          	
-              JsonNode rootNode = jsonObjectMapper.readTree(responseBody);
-              JsonNode objectsNode = rootNode.get("objects");
+        
           if (status == HttpStatus.SC_CREATED) {
-            LOGGER.info("Pod " + dockerTag + ": Scheduled");     
+            LOGGER.info("Pod " + dockerTag + ": Scheduled");    
+          	
+            JsonNode rootNode = jsonObjectMapper.readTree(responseBody);
+            JsonNode objectsNode = rootNode.get("objects");
             podUUID = rootNode.get("uuid").asText();
+            podCreated = true;
             
           } else if (status == HttpStatus.SC_CONFLICT) {
             LOGGER.info("Pod " + dockerTag + ": Already running");
+          } else if (status == HttpStatus.SC_BAD_REQUEST) {
+              LOGGER.info("Pod " + dockerTag + ": Couldn't create stack.  Check definition: " + newStackDefinition);
           } else {
             LOGGER.info("Pod " + dockerTag + ": Not scheduled (" + response.getStatusLine().toString() + ")");
           }
@@ -240,14 +249,13 @@ public class StackManager implements LinkedContainerManager {
           LOGGER.error("Pod " + dockerTag + ": Error scheduling pod", ioe);
         }
 
-        // Wait until Pod is running
-        boolean podRunning = false;
-        boolean podCreated = true;
+
         
-        podRunning = true;
+        
         // Here should be a check to see if it the stack was created, not sure how long it takes!!!
         
         
+        // Start the stack if it was created
         if (podCreated && podUUID != null){
         	// Start the stack
         	HttpPost stackStart = new HttpPost(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/" + podUUID + "/start/");
@@ -269,17 +277,20 @@ public class StackManager implements LinkedContainerManager {
         
         }
         
+        // Wait until Pod is running
         
+        if (podCreated){
+        boolean podRunning = false;
+        int numberOfSecondsWaiting = 0;
+        HttpGet stackStatus = new HttpGet(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/" + podUUID);
+        stackStatus.addHeader("accept", "application/json");
+        stackStatus.addHeader(BasicScheme.authenticate(
+        		 new UsernamePasswordCredentials(dockercloudConfiguration.getUsername(), dockercloudConfiguration.getApikey()),
+        		 "UTF-8", false));
 
-        
         do {
-            HttpGet stackStatus = new HttpGet(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/" + podUUID);
-            stackStatus.addHeader("accept", "application/json");
-            stackStatus.addHeader(BasicScheme.authenticate(
-            		 new UsernamePasswordCredentials(dockercloudConfiguration.getUsername(), dockercloudConfiguration.getApikey()),
-            		 "UTF-8", false));
-
-          LOGGER.info("Pod " + dockerTag + ": Waiting for start");
+          numberOfSecondsWaiting++;
+          LOGGER.info("Pod " + dockerTag + ": Waiting for start.  Seconds:" + numberOfSecondsWaiting);
           Thread.sleep(1000);
 
           try (CloseableHttpResponse response = httpClient.execute(stackStatus)) {
@@ -297,15 +308,22 @@ public class StackManager implements LinkedContainerManager {
     	       String publicDNS = getDNSForStack(serviceURI);
     	        
     	      pod = new Pod(dockerTag, publicDNS, status);
+    	      pod.setUuid(podUUID);
     	        
               podRunning = pod != null && pod.isRunning();
             } catch (IOException ioe) {
               LOGGER.error("Pod " + dockerTag + ": Error getting DNS for pod", ioe);
             }
           }
-        } while (!podRunning);
+        } while (!podRunning | numberOfSecondsWaiting > 120);
 
-        LOGGER.info("Pod " + dockerTag + ": Started");
+        if (podRunning){
+        	LOGGER.info("Pod " + dockerTag + ": Started");
+        	}
+        }
+        else {
+        	LOGGER.error("Pod " + dockerTag + ": Timed out checking for start");
+        }
       } finally {
         readLock.unlock();
       }
@@ -324,37 +342,37 @@ public class StackManager implements LinkedContainerManager {
    * @param dockerTag
    * @throws IOException
    */
-  private void remove(String dockerTag) throws IOException {
+  public void remove(String dockerTag, String stackUUID) throws IOException {
     if (contains(dockerTag)) {
       readLock.lock();
 
       try {
-        ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        JsonGenerator generator = jsonFactory.createGenerator(baos);
+    	  
+    	// Start the stack
+    	  HttpDelete stackDelete = new HttpDelete(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/" + stackUUID +"/");
+    	  stackDelete.addHeader("accept", "application/json");
+    	  stackDelete.addHeader(BasicScheme.authenticate(
+    	    		 new UsernamePasswordCredentials(dockercloudConfiguration.getUsername(), dockercloudConfiguration.getApikey()),
+    	    		 "UTF-8", false));
+      
 
-        ObjectNode root = jsonObjectMapper.createObjectNode();
-        root.put("gracePeriodSeconds", 0);
-
-        generator.writeObject(root);
-        generator.flush();
-
-        HttpDelete podDelete = new HttpDelete("https://" /*+ k8sConfiguration.getMasterIp()*/ + ":443/api/v1/namespaces/" /*+ k8sConfiguration.getNamespace() */+ "/pods/" + dockerTag);
-        podDelete.setEntity(new ByteArrayEntity(baos.toByteArray()));
-
-        try (CloseableHttpResponse response = httpClient.execute(podDelete, httpContext)) {
+        try (CloseableHttpResponse response = httpClient.execute(stackDelete)) {
           if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
-            LOGGER.info("Pod " + dockerTag + ": Removed");
+            LOGGER.info("Stack " + dockerTag + ": Removed");
+            Thread.sleep(10000);
           } else {
-            LOGGER.info("Pod " + dockerTag + ": Error removing pod (" + response.getStatusLine().toString() + ")");
+            LOGGER.info("Stack " + dockerTag + ": Error removing stack (" + response.getStatusLine().toString() + ")");
           }
         } catch (IOException ioe) {
-          LOGGER.error("Pod " + dockerTag + ": Error removing pod", ioe);
+          LOGGER.error("Stack " + dockerTag + ": Error removing stack", ioe);
+        } catch (InterruptedException e) {
+        	LOGGER.error("Stack " + dockerTag + ": Error sleeping");
         }
       } finally {
         readLock.unlock();
       }
     } else {
-      throw new IllegalArgumentException("Pod doesn't exist");
+      throw new IllegalArgumentException("Stack doesn't exist");
     }
   }
 
@@ -391,7 +409,7 @@ public class StackManager implements LinkedContainerManager {
           // Remove the pods
           int amountToRemove = sortedPodsByRequestAge.length - maximumPodCount;
           for (int i = 0; i < amountToRemove; i++) {
-            remove(sortedPodsByRequestAge[i].getDockerTag());
+            remove(sortedPodsByRequestAge[i].getDockerTag(), sortedPodsByRequestAge[i].getUuid());
           }
         }
       } finally {
@@ -406,7 +424,7 @@ public class StackManager implements LinkedContainerManager {
 
   /**
    * Refreshes the internal map which tracks all running pods
-   * @throws IOException
+ * @throws Exception 
    */
   private void refreshPods() throws IOException {
     HttpGet stacksGet = new HttpGet(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/");
@@ -424,6 +442,12 @@ public class StackManager implements LinkedContainerManager {
     	 System.out.println("writelock:" + writeLock.toString());
         writeLock.lock();
 
+        if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+            LOGGER.info("Stack status query suceeded");
+          } else {
+            LOGGER.error("Statck status query failed. (" +  response.getStatusLine().toString() + ")");
+          }
+        
         try (InputStream responseBody = entity.getContent()) {
         	
           JsonNode rootNode = jsonObjectMapper.readTree(responseBody);
@@ -448,7 +472,13 @@ public class StackManager implements LinkedContainerManager {
         	  }
         	  
         	  if (name.indexOf("-")> -1){
-        		  dockerTag = name.split("-")[1];        		  
+        		  String[] namebits = name.split("-");
+        		  if (namebits.length==2){
+        			  dockerTag = namebits[1];        
+        		  }
+        		  else {
+        			  dockerTag = namebits[1] + "." + namebits[2];
+        		  }
         	  }
         	  
         	  if (dockerTag != null && !StringUtils.isBlank(servicesURI)  && podName.contains(dockercloudConfiguration.getNamespace())){
@@ -478,8 +508,8 @@ public class StackManager implements LinkedContainerManager {
           }
 
           // Delete pods that have been removed (delete refers to our hash, not k8s). This calls remove on the hash, not the manager.
-//          toDelete.forEach((dockerTag) -> LOGGER.info("Refresh: Removing pod " + dockerTag + " from internal hash"));
-//          toDelete.forEach(pods::remove);
+          toDelete.forEach((dockerTag) -> LOGGER.info("Refresh: Removing pod " + dockerTag + " from internal hash"));
+          toDelete.forEach(pods::remove);
         } catch (IOException ioe) {
           LOGGER.error("Pod Refresh: Error parsing pods", ioe);
         } finally {
@@ -491,7 +521,7 @@ public class StackManager implements LinkedContainerManager {
     }
 
     // Cleanup old pods
-//    removeExtraPods();
+    removeExtraPods();
 
     // Update the lastRefresh time
     lastRefresh = DateTime.now().getMillis();

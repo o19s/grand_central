@@ -38,24 +38,16 @@ public class DockercloudRegistry implements ImageRegistry {
 
 	@Override
 	public boolean imageExistsInRegistry(String dockerTag) throws Exception {
+		
+		LOGGER.info("Checking if Docker tag exists in registry: " + dockerTag);
+		
 		boolean imageExists = false;
-		String containerName = null;
 		String podUUID = null;
 
-		// Sometimes we hand in v1 and other times its dep4b/datastart:v1!
-		// Maybe a code smell?
-		if (dockerTag.indexOf(":") > -1) {
-			String[] parts = dockerTag.split(":");
-			dockerTag = parts[1];
-			containerName = parts[0];
-		} else {
-			containerName = "dep4b/datastart";
-		}
-
-		String serviceName = "test-img-exst-" + containerName + "-" + dockerTag;
+		String serviceName = "test-img-exst-" + dockercloudConfiguration.getStackExistsTestImage().replace("/", "-") + "-" + dockerTag;
 		serviceName = serviceName.replace('/', '-');
 
-		String imageName = containerName + ":" + dockerTag;
+		String imageName = dockercloudConfiguration.getStackExistsTestImage() + ":" + dockerTag;
 		
 		podUUID = createValidityCheckService(serviceName, imageName);
 		

@@ -12,6 +12,7 @@ public class Pod {
   private String address;
   private String status;
   private AtomicLong lastRequest;
+  private String uuid; // Needed for Dockercloud, we pass UUID around.
 
   /**
    * Creates a new Pod
@@ -62,4 +63,12 @@ public class Pod {
   public void setLastRequest(long requestedAt) {
     this.lastRequest.set(requestedAt);
   }
+
+public String getUuid() {
+	return uuid;
+}
+
+public void setUuid(String uuid) {
+	this.uuid = uuid;
+}
 }

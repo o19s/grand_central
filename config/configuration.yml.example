@@ -21,4 +21,10 @@ gcloud:
   project: quepid-1051
   container_name: quails
 
-
+dockercloud:
+  protocol: https
+  hostname: cloud.docker.com
+  namespace: datastart
+  stack_json_path: src/test/resources/docker-cloud.json
+  username: ${DOCKERCLOUD_USERNAME}
+  apikey: ${DOCKERCLOUD_APIKEY}

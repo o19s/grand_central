@@ -10,5 +10,6 @@ dockercloud:
   hostname: cloud.docker.com
   namespace: datastart
   stack_json_path: src/test/resources/docker-cloud.json
+  stack_exists_test_image: dep4b/datastart
   username: ${DOCKERCLOUD_USERNAME}
   apikey: ${DOCKERCLOUD_APIKEY}
