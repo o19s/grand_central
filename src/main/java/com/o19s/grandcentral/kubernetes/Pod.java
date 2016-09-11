@@ -52,8 +52,10 @@ public class Pod {
 
   public String getStatus() { return status; }
 
+  //FIXME  the Partly running is a Dockercloud thing, we have many bits that may or may not ALL be running.
+  //  For example, a init script...
   public boolean isRunning() {
-    return status != null && status.equals("Running");
+    return status != null && (status.equals("Running") || status.equals("Partly running"));
   }
 
   public long getLastRequest() {

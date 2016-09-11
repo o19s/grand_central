@@ -52,6 +52,9 @@ public class DockercloudRegistry implements ImageRegistry {
 		
 		imageExists = startService(podUUID);
 
+		//FIXME: Just try three times to delete the service, with 2, 8, 16 second timeouts..
+		Thread.sleep(16000); // Need to give time for the service to finish starting before we nuke it.
+
 		deleteService(podUUID);
 
 		return imageExists;
