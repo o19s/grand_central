@@ -3,6 +3,7 @@ package com.o19s.grandcentral.dockercloud;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.concurrent.CompletableFuture;
 
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
@@ -42,20 +43,38 @@ public class DockercloudRegistry implements ImageRegistry {
 		LOGGER.info("Checking if Docker tag exists in registry: " + dockerTag);
 		
 		boolean imageExists = false;
-		String podUUID = null;
 
 		String serviceName = "chk-" + dockerTag;
 
 		String imageName = dockercloudConfiguration.getStackExistsTestImage() + ":" + dockerTag;
 		
-		podUUID = createValidityCheckService(serviceName, imageName);
-		
+		final String podUUID = createValidityCheckService(serviceName, imageName);
+
 		imageExists = startService(podUUID);
+		
 
-		//FIXME: Just try three times to delete the service, with 2, 8, 16 second timeouts..
-		Thread.sleep(16000); // Need to give time for the service to finish starting before we nuke it.
+		
+		CompletableFuture futureDelete = CompletableFuture.supplyAsync(
+			    () -> {
+			    	boolean deleteSuccessful = false;
+			        try {
+			        	
+			        	int sleepTime = 2000;
+			            // Simulate long running task
+			        	do {
+			        		sleepTime = sleepTime * 2;// Double each iteration.
+			        		LOGGER.info("Sleeping for " + sleepTime + "ms before delete on pod: " + podUUID);
+			        		Thread.sleep(sleepTime);
+			        		deleteSuccessful = deleteService(podUUID);
+			        		LOGGER.info("Was delete successful for " + podUUID +": " + deleteSuccessful);
+			        		
+			        	}
+			        	while (!deleteSuccessful && sleepTime <= 64000);
 
-		deleteService(podUUID);
+			            
+			        } catch (InterruptedException e) { }
+			        return deleteSuccessful;
+			    });
 
 		return imageExists;
 	}
@@ -114,8 +133,8 @@ public class DockercloudRegistry implements ImageRegistry {
 		return podUUID;
 	}
 
-	private void deleteService(String podUUID) {
-
+	private boolean deleteService(String podUUID) {
+		boolean result = false;
 		HttpDelete serviceDelete = new HttpDelete(
 				dockercloudConfiguration.getProtocol() + "://"
 						+ dockercloudConfiguration.getHostname()
@@ -135,12 +154,15 @@ public class DockercloudRegistry implements ImageRegistry {
 			
 			if (status == HttpStatus.SC_ACCEPTED) {
 				LOGGER.info("Pod " + podUUID + ": Deleted");
+				result = true;
 
 			}
 
 		} catch (IOException ioe) {
 			LOGGER.error("Pod " + podUUID + ": Error  pod", ioe);
 		}
+		
+		return result;
 
 	}
 

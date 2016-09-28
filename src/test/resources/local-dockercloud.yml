@@ -1,15 +1,15 @@
 janitor_cleanup_threshold: 3600
 maximum_stack_count: 2
-grandcentral_domain: datastart.grandcentral.com
+grandcentral_domain: apache.grandcentral.com
 refresh_interval_in_ms: 300000
 
-pod_port: 81
+pod_port: 80
 
 dockercloud:
   protocol: https
   hostname: cloud.docker.com
-  namespace: datastart
+  namespace: apache
   stack_json_path: src/test/resources/docker-cloud.json
-  stack_exists_test_image: dep4b/datastart
+  stack_exists_test_image: eboraas/apache
   username: ${DOCKERCLOUD_USERNAME}
   apikey: ${DOCKERCLOUD_APIKEY}

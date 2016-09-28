@@ -56,7 +56,7 @@ public class PodServletFilter implements javax.servlet.Filter {
 
       String host = request.getHeader("Host");
       String hostWithoutPort, dockerTag;
-
+      // FIXME: if the host is null, should GC blow up?   Can you have a null host?
       if (host != null && host.contains(":")) {
         hostWithoutPort = host.substring(0, host.indexOf(":"));
       } else {
@@ -92,7 +92,8 @@ public class PodServletFilter implements javax.servlet.Filter {
             }
           }
         } else {
-          return_error(servletResponse, HttpStatus.BAD_REQUEST_400, "Host Header was not specified or is invalid");
+          LOGGER.info("Host:" + host + ", dockerTag:" + dockerTag + "," + "grandCentralDomain:" + this.grandCentralDomain);
+          return_error(servletResponse, HttpStatus.BAD_REQUEST_400, "Host Header was not specified or is invalid:" +"Host:" + host + ", dockerTag:" + dockerTag + "," + "grandCentralDomain:" + this.grandCentralDomain);
         }
       } catch (Exception e) {
         LOGGER.error("Exception filtering request", e);

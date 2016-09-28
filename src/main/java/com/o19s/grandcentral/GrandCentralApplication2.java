@@ -40,6 +40,9 @@ public class GrandCentralApplication2 extends Application<GrandCentralConfigurat
 
   @Override
   public void run(GrandCentralConfiguration2 config, Environment environment) throws Exception {
+	  
+	 // FIXME: Should be a healthcheck that confirms access to DockerCloud.
+	 System.out.println("Username:" + config.getDockercloudConfiguration().getUsername());
     // Add health checks
 	  /*
     environment.healthChecks().register("container_registry", new ContainerRegistryHealthCheck(

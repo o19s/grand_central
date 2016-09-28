@@ -1,10 +1,10 @@
 {
-  "name": "mysql",
+  "name": "apache",
   "services": [
       {
-        "name":"mysql",
-        "image": "mysql:__DOCKER_TAG__",
-        "environment": ["MYSQL_ROOT_PASSWORD=root"]
+        "name":"apache",
+        "image": "eboraas/apache:__DOCKER_TAG__",
+        "ports": ["80:80"]
       }
   ]
 }

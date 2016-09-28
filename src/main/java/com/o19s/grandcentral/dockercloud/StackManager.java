@@ -427,6 +427,7 @@ public class StackManager implements LinkedContainerManager {
  * @throws Exception 
    */
   private void refreshPods() throws IOException {
+	  
     HttpGet stacksGet = new HttpGet(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + "/api/app/v1/stack/");
     stacksGet.addHeader("accept", "application/json");
     stacksGet.addHeader(BasicScheme.authenticate(
@@ -439,13 +440,12 @@ public class StackManager implements LinkedContainerManager {
       HttpEntity entity = response.getEntity();
       if (entity != null) {
         // Grab the write lock
-    	 System.out.println("writelock:" + writeLock.toString());
         writeLock.lock();
 
         if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
             LOGGER.info("Stack status query suceeded");
           } else {
-            LOGGER.error("Statck status query failed. (" +  response.getStatusLine().toString() + ")");
+            LOGGER.error("Stack status query failed. (" +  response.getStatusLine().toString() + ")");
           }
         
         try (InputStream responseBody = entity.getContent()) {
