@@ -13,3 +13,11 @@ dockercloud:
   stack_exists_test_image: eboraas/apache
   username: ${DOCKERCLOUD_USERNAME}
   apikey: ${DOCKERCLOUD_APIKEY}
+
+server:
+  type: simple
+  applicationContextPath: /
+  adminContextPath: /admin
+  connector:
+    type: http
+    port: 8080
