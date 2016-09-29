@@ -357,7 +357,7 @@ public class StackManager implements LinkedContainerManager {
       
 
         try (CloseableHttpResponse response = httpClient.execute(stackDelete)) {
-          if (response.getStatusLine().getStatusCode() == HttpStatus.SC_OK) {
+          if (response.getStatusLine().getStatusCode() == HttpStatus.SC_ACCEPTED) {
             LOGGER.info("Stack " + dockerTag + ": Removed");
             Thread.sleep(10000);
           } else {
@@ -465,6 +465,7 @@ public class StackManager implements LinkedContainerManager {
         	  
         	  String dockerTag = null;
         	  String podName = name;
+        	  String podUUID = serviceNode.get("uuid").asText();
         	  String state = serviceNode.get("state").asText();
         	  String servicesURI = null;
         	  if (serviceNode.get("services").size()> 0){  // A stack that is starting up may not yet have services!
@@ -486,6 +487,7 @@ public class StackManager implements LinkedContainerManager {
         		  String publicDNS = getDNSForStack(servicesURI);
         		  
         		  pod = new Pod(dockerTag, publicDNS, state);
+        		  pod.setUuid(podUUID);
         	  }
         	  
         	  
