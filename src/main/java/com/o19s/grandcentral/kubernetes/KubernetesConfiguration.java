@@ -29,6 +29,10 @@ public class KubernetesConfiguration {
 
   // this can be null
   private String protocol;
+  
+  @NotNull
+  @NotEmpty
+  private int podPort;  
 
   @JsonProperty
   public String getMasterIp() {
@@ -78,5 +82,15 @@ public class KubernetesConfiguration {
   @JsonProperty
   public void setNamespace(String namespace) {
     this.namespace = namespace;
+  }
+
+  @JsonProperty
+  public int getPodPort() {
+    return podPort;
+  }
+
+  @JsonProperty
+  public void setPodPort(int podPort) {
+    this.podPort = podPort;
   }
 }

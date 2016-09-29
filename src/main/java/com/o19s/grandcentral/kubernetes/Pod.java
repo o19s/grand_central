@@ -13,6 +13,7 @@ public class Pod {
   private String status;
   private AtomicLong lastRequest;
   private String uuid; // Needed for Dockercloud, we pass UUID around.
+  private int podPort; // Dockercloud really wants dynamic host mapped ports, not hard coded one for port 80
 
   /**
    * Creates a new Pod
@@ -20,8 +21,8 @@ public class Pod {
    * @param address
    * @param status
    */
-  public Pod(String dockerTag, String address, String status) {
-    this(dockerTag, address, status, DateTime.now().getMillis());
+  public Pod(String dockerTag, String address, String status, int podPort) {
+    this(dockerTag, address, status, podPort, DateTime.now().getMillis());
   }
 
   /**
@@ -31,10 +32,11 @@ public class Pod {
    * @param status Status of the Pod
    * @param lastRequest When this pod last received a request
    */
-  public Pod(String dockerTag, String address, String status, long lastRequest) {
+  public Pod(String dockerTag, String address, String status, int podPort, long lastRequest) {
     this.dockerTag = dockerTag;
     this.address = address;
     this.status = status;
+    this.podPort = 80;
     this.lastRequest = new AtomicLong(lastRequest);
   }
 
@@ -66,11 +68,19 @@ public class Pod {
     this.lastRequest.set(requestedAt);
   }
 
-public String getUuid() {
-	return uuid;
-}
+  public String getUuid() {
+	 return uuid;
+  }
 
-public void setUuid(String uuid) {
+  public void setUuid(String uuid) {
 	this.uuid = uuid;
-}
+  }
+  
+  public int getPodPort() {
+	 return podPort;
+  }
+
+  public void setPodPort(int podPort) {
+	this.podPort = podPort;
+  }  
 }

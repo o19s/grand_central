@@ -17,10 +17,8 @@ public class PodProxyServlet extends ProxyServlet {
 
   private static final Logger LOGGER = LoggerFactory.getLogger(PodProxyServlet.class);
 
-  private final int podPort;
 
-  public PodProxyServlet(int podPort) {
-    this.podPort = podPort;
+  public PodProxyServlet() {
   }
 
   @Override
@@ -32,7 +30,7 @@ public class PodProxyServlet extends ProxyServlet {
   protected String rewriteTarget(HttpServletRequest request) {
     String path = request.getRequestURI();
 
-    StringBuilder uri = new StringBuilder("http://" + request.getAttribute("proxyTo") + ":" + podPort);
+    StringBuilder uri = new StringBuilder("http://" + request.getAttribute("proxyTo"));
     uri.append(path);
 
     String query = request.getQueryString();

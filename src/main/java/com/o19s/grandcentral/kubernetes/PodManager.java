@@ -236,7 +236,7 @@ public Pod add(String dockerTag) throws Exception {
           try (CloseableHttpResponse response = httpClient.execute(podStatusGet, httpContext)) {
             HttpEntity entity = response.getEntity();
             try (InputStream responseBody = entity.getContent()) {
-              pod = PodFactory.podFromJson(jsonObjectMapper.readTree(responseBody));
+              pod = PodFactory.podFromJson(jsonObjectMapper.readTree(responseBody), k8sConfiguration.getPodPort());
 
               podRunning = pod != null && pod.isRunning();
             } catch (IOException ioe) {
@@ -365,7 +365,7 @@ public Pod add(String dockerTag) throws Exception {
           Set<String> toDelete = new HashSet<>(pods.size());
           toDelete.addAll(pods.keySet());
           for (int i = 0; i < itemsNode.size(); i++) {
-            Pod pod = PodFactory.podFromJson(itemsNode.get(i));
+            Pod pod = PodFactory.podFromJson(itemsNode.get(i), k8sConfiguration.getPodPort());
 
             if (pod != null && pod.isRunning()) {
               // The pod is valid and should be managed

@@ -58,7 +58,7 @@ public class GrandCentralApplication extends Application<GrandCentralConfigurati
 
     // Define the filter and proxy
     final PodServletFilter psv = new PodServletFilter(config.getGrandcentralDomain(), podManager, gCloudRegistry);
-    final PodProxyServlet pps = new PodProxyServlet(config.getPodPort());
+    final PodProxyServlet pps = new PodProxyServlet();
 
     // Disable Jersey in the proxy environment
     environment.jersey().disable();
