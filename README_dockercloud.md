@@ -53,6 +53,23 @@ curl --user username:apikey "https://cloud.docker.com/api/app/v1/stack/"
 
 curl --user username:apikey "https://cloud.docker.com/api/app/v1/stack/"
 
+## Development/Testing
+There are a lot of moving pieces to GrandCentral, you need GC itself, plus the configuration to work with either Kubernetes or DockerCloud.   This is how I set up my local environment:
+
+1. Set up your /etc/hosts with a couple of fake DNS entries that map to two released versions of Apache.   You can see these tags at https://hub.docker.com/r/eboraas/apache/tags/.
+
+```
+127.0.0.1 latest.apache.grandcentral.com
+127.0.0.1 stretch.apache.grandcentral.com
+```
+
+1. I like to run the core GrandCentral application in Eclipse in debug mode.  Fortunately that is very easy.  Just setup a _Java Application_ run/debug configuration.   In the _Arguments_ tab tell Dropwizard to run in _server_ mode and pass in the configuration file: `server src/test/resources/local-dockercloud.yml`.  Then in the _Enrivonment_ tab, add an entry for `DOCKERCLOUD_APIKEY` and `DOCKERCLOUD_USERNAME`.
+
+1. Fire up the application, and you'll see some startup checks that verify access to DockerCloud.
+
+1. Browse to http://latest.apache.grandcentral.com:8080 and in about 10 seconds you should see a default Debian Apache install page load up!  Check your DockerCloud dashboard, you'll see the service fired up and running on an internal port.
+
+
 ## /etc/hosts
 
 Add to make testing your local set up easier this to your `/etc/hosts` file:
