@@ -67,7 +67,7 @@ There are a lot of moving pieces to GrandCentral, you need GC itself, plus the c
 
 1. Fire up the application, and you'll see some startup checks that verify access to DockerCloud.
 
-1. Browse to http://latest.apache.grandcentral.com:8080 and in about 10 seconds you should see a default Debian Apache install page load up!  Check your DockerCloud dashboard, you'll see the service fired up and running on an internal port.
+1. Browse to http://latest.apache.grandcentral.com:8080 and in about 10 seconds you should see a default Debian Apache install page load up!  Check your DockerCloud dashboard, you'll see the service fired up and running on an internal port.   Then, pull up http://stretch.apache.grandcentral.com:8080 and you'll see the new pod started, and the old pod deleted due to the _maximum_stack_count=1_.
 
 
 ## /etc/hosts
