@@ -4,9 +4,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.locks.Lock;
@@ -36,7 +38,6 @@ import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.o19s.grandcentral.LinkedContainerManager;
 import com.o19s.grandcentral.http.HttpDelete; // IMPORTANT, allows DELETE requests with bodies
 import com.o19s.grandcentral.kubernetes.Pod;
@@ -302,10 +303,13 @@ public class StackManager implements LinkedContainerManager {
                String name = rootNode.get("name").asText();
     	       String status = rootNode.get("state").asText();
     	       JsonNode servicesNode = rootNode.get("services");
-
-    	        
-    	       String serviceURI = servicesNode.get(0).asText();
-    	       String publicDNS = getDNSForStack(serviceURI);
+    	       List<String> servicesURI = new ArrayList<String>();
+    	       for (JsonNode node : servicesNode){
+    	    	   servicesURI.add(node.asText());
+    	       }
+    	       
+    	       
+    	       String publicDNS = getTargetDNSForStack(dockercloudConfiguration.getStackExistsTestImage(),servicesURI);
     	        
     	      pod = new Pod(dockerTag, publicDNS, status);
     	      pod.setUuid(podUUID);
@@ -467,11 +471,7 @@ public class StackManager implements LinkedContainerManager {
         	  String podName = name;
         	  String podUUID = serviceNode.get("uuid").asText();
         	  String state = serviceNode.get("state").asText();
-        	  String servicesURI = null;
-        	  if (serviceNode.get("services").size()> 0){  // A stack that is starting up may not yet have services!
-        		  servicesURI = serviceNode.get("services").get(0).asText();
-        	  }
-        	  
+
         	  if (name.indexOf("-")> -1){
         		  String[] namebits = name.split("-");
         		  if (namebits.length==2){
@@ -482,9 +482,16 @@ public class StackManager implements LinkedContainerManager {
         		  }
         	  }
         	  
-        	  if (dockerTag != null && !StringUtils.isBlank(servicesURI)  && podName.contains(dockercloudConfiguration.getNamespace())){
+   	       	List<String> servicesURI2 = new ArrayList<String>();
+   	       	for (JsonNode node : serviceNode.get("services")){
+   	       		servicesURI2.add(node.asText());
+   	       	}
+
+
+        	  
+        	  if (dockerTag != null && !servicesURI2.isEmpty()  && podName.contains(dockercloudConfiguration.getNamespace())){
         		  
-        		  String publicDNS = getDNSForStack(servicesURI);
+        		  String publicDNS = getTargetDNSForStack(dockercloudConfiguration.getStackExistsTestImage(), servicesURI2);
         		  
         		  pod = new Pod(dockerTag, publicDNS, state);
         		  pod.setUuid(podUUID);
@@ -529,8 +536,9 @@ public class StackManager implements LinkedContainerManager {
     lastRefresh = DateTime.now().getMillis();
   }
   
-  private String getDNSForStack(String serviceURI){
-	  String publicDNS = null;
+  private String getTargetDNSForStack(String targetImage,  List<String> servicesURI) throws IOException{
+	  
+	  for (String serviceURI : servicesURI){
 	  HttpGet stackServices = new HttpGet(dockercloudConfiguration.getProtocol() + "://" + dockercloudConfiguration.getHostname() + serviceURI);
       stackServices.addHeader("accept", "application/json");
       stackServices.addHeader(BasicScheme.authenticate(
@@ -542,17 +550,22 @@ public class StackManager implements LinkedContainerManager {
           	
    
               JsonNode rootNode2 = jsonObjectMapper.readTree(responseBody2);
-               publicDNS = rootNode2.get("public_dns").asText();
+              if (rootNode2.get("image_name").asText().contains(targetImage)){
+               String publicDNS = rootNode2.get("public_dns").asText();
+               return publicDNS;
+              }
   	         	                    
           } catch (IOException ioe) {
             LOGGER.error("Pod at " + serviceURI + ": Error starting pod", ioe);
           }
         
       
-  } catch (IOException ioe) {
-    LOGGER.error("Pod " + serviceURI + ": Error getting public dns for pod", ioe);
-  }
-      return publicDNS;
+      } catch (IOException ioe) {
+    	  LOGGER.error("Pod " + serviceURI + ": Error getting public dns for pod", ioe);
+      }
+	  }
+	  
+	  throw new IOException("Dude, wheres my DNS");
   
   }
 }
