@@ -1,3 +1,9 @@
+## This project is no longer maintained
+
+> We're keeping this repository live as it pointed the way to now more common idea of being able to push to a live environment every single version (commit) of an application.   Grand Central is a really powerful way of fast forwarding/rewinding through the development of a project, and see your committed changes exposed live in a running system.   GC has been one of the most interesting efforts I've participated in to build better quality software!   - Eric Pugh (2/1/19)
+
+
+
 # Grand Central
 *Quepid's automated review deployment tool. Gut-check in the cloud*
 
