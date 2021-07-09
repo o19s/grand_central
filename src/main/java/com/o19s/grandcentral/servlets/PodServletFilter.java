@@ -1,16 +1,22 @@
 package com.o19s.grandcentral.servlets;
 
-import com.o19s.grandcentral.gcloud.GCloudRegistry;
-import com.o19s.grandcentral.kubernetes.Pod;
-import com.o19s.grandcentral.kubernetes.PodManager;
+import java.io.IOException;
+
+import javax.servlet.FilterChain;
+import javax.servlet.FilterConfig;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+
 import org.eclipse.jetty.http.HttpStatus;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.*;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
+import com.o19s.grandcentral.ImageRegistry;
+import com.o19s.grandcentral.LinkedContainerManager;
+import com.o19s.grandcentral.kubernetes.Pod;
 
 /**
  * Filter which drops requests that do not match the appropriate host header format.
@@ -19,15 +25,15 @@ public class PodServletFilter implements javax.servlet.Filter {
   private static final Logger LOGGER = LoggerFactory.getLogger(PodServletFilter.class);
 
   private String grandCentralDomain;
-  private PodManager podManager;
-  private GCloudRegistry gCloudRegistry;
+  private LinkedContainerManager podManager;
+  private ImageRegistry gCloudRegistry;
 
   /**
    *
    * @param grandCentralDomain The domain grand central is running on. This helps determine the portion of the URL representing the Git hash.
    * @param podManager
    */
-  public PodServletFilter(String grandCentralDomain, PodManager podManager, GCloudRegistry gCloudRegistry) {
+  public PodServletFilter(String grandCentralDomain, LinkedContainerManager podManager, ImageRegistry gCloudRegistry) {
     this.grandCentralDomain = grandCentralDomain;
     this.podManager = podManager;
     this.gCloudRegistry = gCloudRegistry;
@@ -50,7 +56,7 @@ public class PodServletFilter implements javax.servlet.Filter {
 
       String host = request.getHeader("Host");
       String hostWithoutPort, dockerTag;
-
+      // FIXME: if the host is null, should GC blow up?   Can you have a null host?
       if (host != null && host.contains(":")) {
         hostWithoutPort = host.substring(0, host.indexOf(":"));
       } else {
@@ -86,7 +92,8 @@ public class PodServletFilter implements javax.servlet.Filter {
             }
           }
         } else {
-          return_error(servletResponse, HttpStatus.BAD_REQUEST_400, "Host Header was not specified or is invalid");
+          LOGGER.info("Host:" + host + ", dockerTag:" + dockerTag + "," + "grandCentralDomain:" + this.grandCentralDomain);
+          return_error(servletResponse, HttpStatus.BAD_REQUEST_400, "Host Header was not specified or is invalid:" +"Host:" + host + ", dockerTag:" + dockerTag + "," + "grandCentralDomain:" + this.grandCentralDomain);
         }
       } catch (Exception e) {
         LOGGER.error("Exception filtering request", e);

@@ -1,18 +1,25 @@
 package com.o19s.grandcentral.kubernetes;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.node.ObjectNode;
-import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
+
+import javax.net.ssl.SSLContext;
+
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.methods.CloseableHttpResponse;
-import com.o19s.grandcentral.http.HttpDelete; // IMPORTANT, allows DELETE requests with bodies
 import org.apache.http.client.methods.HttpGet;
 import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.protocol.HttpClientContext;
@@ -33,19 +40,19 @@ import org.joda.time.DateTime;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.SSLContext;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.IOException;
-import java.io.InputStream;
-import java.util.*;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.o19s.grandcentral.LinkedContainerManager;
+import com.o19s.grandcentral.http.HttpDelete; // IMPORTANT, allows DELETE requests with bodies
 
 /**
  * Manages all pods present within a namespace
  */
-public class PodManager {
+public class PodManager implements LinkedContainerManager {
   private static final Logger LOGGER = LoggerFactory.getLogger(PodManager.class);
 
   private long lastRefresh;
@@ -75,6 +82,7 @@ public class PodManager {
    * @param keystorePath Path to the Java Keystore containing trusted certificates
    * @param maximumPodCount Maximum number of pods to ever have running at once
    * @param refreshIntervalInMs Interval with which to refresh the pods
+   * @param podYamlPath the location of the yaml config for the application pod
    */
   public PodManager(KubernetesConfiguration k8sConfiguration,
                     String keystorePath,
@@ -127,12 +135,11 @@ public class PodManager {
     refreshPods();
   }
 
-  /**
-   * Get pod information for the given name
-   * @param dockerTag Git hash / name of the pod to return
-   * @return The pod which matches the given key.
-   */
-  public Pod get(String dockerTag) throws IOException {
+  /* (non-Javadoc)
+ * @see com.o19s.grandcentral.kubernetes.StuffManagerInterfaceNeedBetterName#get(java.lang.String)
+ */
+  @Override
+public Pod get(String dockerTag) throws IOException {
     Pod pod = null;
 
     // Force a refresh of the data from K8S if the interval has passed
@@ -153,12 +160,11 @@ public class PodManager {
     return pod;
   }
 
-  /**
-   * Does the provided dockerTag currently exist within the cluster
-   * @param dockerTag Git hash / name of the pod to check
-   * @return True if the pod exists
-   */
-  public Boolean contains(String dockerTag) {
+  /* (non-Javadoc)
+ * @see com.o19s.grandcentral.kubernetes.StuffManagerInterfaceNeedBetterName#contains(java.lang.String)
+ */
+  @Override
+public Boolean contains(String dockerTag) {
     readLock.lock();
     boolean contains = false;
 
@@ -171,11 +177,11 @@ public class PodManager {
     return contains;
   }
 
-  /**
-   * Adds a pod with the docker tag
-   * @param dockerTag Git hash / name of the pod to deploy
-   */
-  public Pod add(String dockerTag) throws Exception {
+  /* (non-Javadoc)
+ * @see com.o19s.grandcentral.kubernetes.StuffManagerInterfaceNeedBetterName#add(java.lang.String)
+ */
+  @Override
+public Pod add(String dockerTag) throws Exception {
     if (!contains(dockerTag)) {
       Pod pod = null;
 
@@ -343,7 +349,7 @@ public class PodManager {
    * @throws IOException
    */
   private void refreshPods() throws IOException {
-    HttpGet podsGet = new HttpGet("https://" + k8sConfiguration.getMasterIp() + ":443/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
+    HttpGet podsGet = new HttpGet(k8sConfiguration.getProtocol() + "://" + k8sConfiguration.getMasterIp() + "/api/v1/namespaces/" + k8sConfiguration.getNamespace() + "/pods");
 
     try (CloseableHttpResponse response = httpClient.execute(podsGet, httpContext)) {
       HttpEntity entity = response.getEntity();

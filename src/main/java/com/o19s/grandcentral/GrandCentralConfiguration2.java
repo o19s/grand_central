@@ -9,22 +9,21 @@ import javax.validation.constraints.NotNull;
 import org.hibernate.validator.constraints.NotEmpty;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.o19s.grandcentral.gcloud.GCloudConfiguration;
-import com.o19s.grandcentral.kubernetes.KubernetesConfiguration;
+import com.o19s.grandcentral.dockercloud.DockercloudConfiguration;
 
 /**
  * Configuration values for the {@link GrandCentralApplication}. Data is loaded from a provided YAML file on start or
  * passed in via Environment variables.
  */
 @JsonSnakeCase
-public class GrandCentralConfiguration extends Configuration {
+public class GrandCentralConfiguration2 extends Configuration {
   @Valid
   @NotNull
   private long janitorCleanupThreshold;
 
   @Valid
   @NotNull
-  private int maximumPodCount;
+  private int maximumStackCount;
 
   @Valid
   @NotEmpty
@@ -34,28 +33,18 @@ public class GrandCentralConfiguration extends Configuration {
   @Valid
   @NotNull
   private long refreshIntervalInMs;
-
-  @Valid
-  @NotNull
-  @NotEmpty
-  private String keystorePath;
-
-  @Valid
-  @NotNull
-  @NotEmpty
-  private String podYamlPath;
-
+  
   @Valid
   @NotNull
   private int podPort;
 
-  @Valid
-  @NotNull
-  private KubernetesConfiguration kubernetes = new KubernetesConfiguration();
 
+
+  
   @Valid
   @NotNull
-  private GCloudConfiguration gcloud = new GCloudConfiguration();
+  private DockercloudConfiguration dockercloud = new DockercloudConfiguration();
+  
 
   @JsonProperty
   public long getJanitorCleanupThreshold() {
@@ -67,14 +56,15 @@ public class GrandCentralConfiguration extends Configuration {
     this.janitorCleanupThreshold = janitorCleanupThreshold;
   }
 
+  
   @JsonProperty
-  public int getMaximumPodCount() {
-    return maximumPodCount;
+  public int getMaximumStackCount() {
+    return maximumStackCount;
   }
 
   @JsonProperty
-  public void setMaximumPodCount(int maximumPodCount) {
-    this.maximumPodCount = maximumPodCount;
+  public void setMaximumStackCount(int maximumStackCount) {
+    this.maximumStackCount = maximumStackCount;
   }
 
   @JsonProperty
@@ -92,30 +82,23 @@ public class GrandCentralConfiguration extends Configuration {
     return refreshIntervalInMs;
   }
 
-  @JsonProperty
-  public String getKeystorePath() {
-    return keystorePath;
-  }
-
-  @JsonProperty
-  public void setKeystorePath(String keystorePath) {
-    this.keystorePath = keystorePath;
-  }
 
   @JsonProperty
   public void setRefreshIntervalInMs(long refreshIntervalInMs) {
     this.refreshIntervalInMs = refreshIntervalInMs;
   }
 
-  @JsonProperty
-  public String getPodYamlPath() {
-    return podYamlPath;
+
+  @JsonProperty("dockercloud")
+  public DockercloudConfiguration getDockercloudConfiguration() {
+    return dockercloud;
   }
 
-  @JsonProperty
-  public void setPodYamlPath(String podYamlPath) {
-    this.podYamlPath = podYamlPath;
+  @JsonProperty("dockercloud")
+  public void setDockercloudConfiguration(DockercloudConfiguration factory) {
+    this.dockercloud = factory;
   }
+
 
   @JsonProperty
   public int getPodPort() {
@@ -125,25 +108,5 @@ public class GrandCentralConfiguration extends Configuration {
   @JsonProperty
   public void setPodPort(int podPort) {
     this.podPort = podPort;
-  }
-
-  @JsonProperty("kubernetes")
-  public KubernetesConfiguration getKubernetesConfiguration() {
-    return kubernetes;
-  }
-
-  @JsonProperty("kubernetes")
-  public void setKubernetesConfiguration(KubernetesConfiguration factory) {
-    this.kubernetes = factory;
-  }
-
-  @JsonProperty("gcloud")
-  public GCloudConfiguration getGCloudConfiguration() {
-    return gcloud;
-  }
-
-  @JsonProperty("gcloud")
-  public void setGCloudConfiguration(GCloudConfiguration gcloud) {
-    this.gcloud = gcloud;
   }
 }

@@ -1,6 +1,8 @@
 package com.o19s.grandcentral;
 
 import io.dropwizard.Application;
+import io.dropwizard.configuration.EnvironmentVariableSubstitutor;
+import io.dropwizard.configuration.SubstitutingSourceProvider;
 import io.dropwizard.setup.Bootstrap;
 import io.dropwizard.setup.Environment;
 
@@ -8,16 +10,16 @@ import java.util.EnumSet;
 
 import javax.servlet.DispatcherType;
 
-import com.o19s.grandcentral.gcloud.GCloudRegistry;
-import com.o19s.grandcentral.healthchecks.ContainerRegistryHealthCheck;
-import com.o19s.grandcentral.healthchecks.KubernetesMasterHealthCheck;
-import com.o19s.grandcentral.kubernetes.PodManager;
+import com.o19s.grandcentral.dockercloud.DockercloudRegistry;
+import com.o19s.grandcentral.dockercloud.StackManager;
 import com.o19s.grandcentral.servlets.PodProxyServlet;
 import com.o19s.grandcentral.servlets.PodServletFilter;
+//import com.o19s.grandcentral.healthchecks.ContainerRegistryHealthCheck;
+//import com.o19s.grandcentral.healthchecks.KubernetesMasterHealthCheck;
 
-public class GrandCentralApplication extends Application<GrandCentralConfiguration> {
+public class GrandCentralApplication2 extends Application<GrandCentralConfiguration2> {
   public static void main(String[] args) throws Exception {
-    new GrandCentralApplication().run(args);
+    new GrandCentralApplication2().run(args);
   }
 
   @Override
@@ -26,11 +28,23 @@ public class GrandCentralApplication extends Application<GrandCentralConfigurati
   }
 
   @Override
-  public void initialize(Bootstrap<GrandCentralConfiguration> bootstrap) {}
+  public void initialize(Bootstrap<GrandCentralConfiguration2> bootstrap) {
+	// Enable variable substitution with environment variables
+      bootstrap.setConfigurationSourceProvider(
+              new SubstitutingSourceProvider(bootstrap.getConfigurationSourceProvider(),
+                                                 new EnvironmentVariableSubstitutor(false)
+              )
+      );
+	  
+  }
 
   @Override
-  public void run(GrandCentralConfiguration config, Environment environment) throws Exception {
+  public void run(GrandCentralConfiguration2 config, Environment environment) throws Exception {
+	  
+	 // FIXME: Should be a healthcheck that confirms access to DockerCloud.
+	 System.out.println("Username:" + config.getDockercloudConfiguration().getUsername());
     // Add health checks
+	  /*
     environment.healthChecks().register("container_registry", new ContainerRegistryHealthCheck(
         config.getKeystorePath(),
         config.getGCloudConfiguration().getRegistryDomain(),
@@ -44,20 +58,21 @@ public class GrandCentralApplication extends Application<GrandCentralConfigurati
         config.getKubernetesConfiguration().getUsername(),
         config.getKubernetesConfiguration().getPassword(),
         config.getKubernetesConfiguration().getNamespace()));
+        */
 
-    // Build the PodManager
-    LinkedContainerManager podManager = new PodManager(
-        config.getKubernetesConfiguration(),
-        config.getKeystorePath(),
+    // Build the StackManager
+	LinkedContainerManager linkedContainerManager = new StackManager(
+        config.getDockercloudConfiguration(),
         config.getRefreshIntervalInMs(),
-        config.getMaximumPodCount(),
-        config.getPodYamlPath()
-    );
+        config.getMaximumStackCount()
+        );
+   
 
-    ImageRegistry gCloudRegistry = new GCloudRegistry(config.getGCloudConfiguration(), config.getKeystorePath());
+    ImageRegistry imageRegistry = new DockercloudRegistry(config.getDockercloudConfiguration());
+
 
     // Define the filter and proxy
-    final PodServletFilter psv = new PodServletFilter(config.getGrandcentralDomain(), podManager, gCloudRegistry);
+    final PodServletFilter psv = new PodServletFilter(config.getGrandcentralDomain(), linkedContainerManager, imageRegistry);
     final PodProxyServlet pps = new PodProxyServlet(config.getPodPort());
 
     // Disable Jersey in the proxy environment

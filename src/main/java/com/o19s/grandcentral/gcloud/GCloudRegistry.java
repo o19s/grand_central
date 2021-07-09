@@ -1,5 +1,11 @@
 package com.o19s.grandcentral.gcloud;
 
+import java.io.File;
+import java.nio.charset.StandardCharsets;
+import java.util.Base64;
+
+import javax.net.ssl.SSLContext;
+
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -20,15 +26,12 @@ import org.apache.http.impl.client.HttpClients;
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager;
 import org.apache.http.ssl.SSLContexts;
 
-import javax.net.ssl.SSLContext;
-import java.io.File;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import com.o19s.grandcentral.ImageRegistry;
 
 /**
  * Created by cbradford on 1/18/16.
  */
-public class GCloudRegistry {
+public class GCloudRegistry implements ImageRegistry {
   private CloseableHttpClient httpClient;
   private HttpClientContext httpContext;
   private GCloudConfiguration config;
@@ -68,7 +71,11 @@ public class GCloudRegistry {
     httpContext.setCredentialsProvider(gcloudCredentialsProvider);
   }
 
-  public boolean imageExistsInRegistry(String dockerTag) throws Exception {
+  /* (non-Javadoc)
+ * @see com.o19s.grandcentral.gcloud.ImageRegistry#imageExistsInRegistry(java.lang.String)
+ */
+@Override
+public boolean imageExistsInRegistry(String dockerTag) throws Exception {
     // Verify the image is available from GCR.io
     HttpGet verificationGet = new HttpGet("https://" + config.getRegistryDomain() + ":443/v2/"
         + config.getProject() + "/" + config.getContainerName() + "/manifests/" + dockerTag);

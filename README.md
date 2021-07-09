@@ -66,13 +66,26 @@ sudo route add -net 10.2.47 172.17.4.99
 ## Local K8S Certificate
 The K8S cluster has a self-signed SSL certificate. It must be added to a keystore as a trusted certificate before requests are permitted.
 
+To retrieve K8S master ip, assuming using GCP, you need to first get your username/password via:
+
+```
+gcloud container clusters describe hello-zeppelin --zone us-central1-f
+```
+
+Then you can look up the IP of the K8S dashboard via
+
+```
+kubectl cluster-info | grep kubernetes-dashboard
+```
+
+
 **OS X**
 
 ```
 brew install openssl
-echo -n | /usr/local/Cellar/openssl/1.0.2e/bin/openssl s_client -connect <kubernetes master ip>:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > config/local.pem
+echo -n | /usr/local/Cellar/openssl/1.0.2g/bin/openssl s_client -connect <kubernetes master ip>:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > config/local.pem
 keytool -importkeystore -srckeystore $JAVA_HOME/jre/lib/security/cacerts -destkeystore config/grandcentral.jks -srcstorepass changeit -deststorepass changeit
-ho "yes" | keytool -import -v -trustcacerts -alias local_k8s -file k8s/local.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
+echo "yes" | keytool -import -v -trustcacerts -alias local_k8s -file config/local.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
 ```
 
 **Linux**
@@ -80,7 +93,7 @@ ho "yes" | keytool -import -v -trustcacerts -alias local_k8s -file k8s/local.pem
 ```
 echo -n | openssl s_client -connect 172.17.4.99:443 | sed -ne '/-BEGIN CERTIFICATE-/,/-END CERTIFICATE-/p' > config/local.pem
 keytool -importkeystore -srckeystore $JAVA_HOME/jre/lib/security/cacerts -destkeystore config/grandcentral.jks -srcstorepass changeit -deststorepass changeit
-echo "yes" | keytool -import -v -trustcacerts -alias local_k8s -file k8s/local.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
+echo "yes" | keytool -import -v -trustcacerts -alias local_k8s -file config/local.pem -keystore config/grandcentral.jks -keypass changeit -storepass changeit
 ```
 
 ### Logging in to GCR.io

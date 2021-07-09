@@ -1,4 +1,4 @@
-package com.o19s.grandcentral.kubernetes;
+package com.o19s.grandcentral.dockercloud;
 
 import io.dropwizard.jackson.JsonSnakeCase;
 
@@ -10,10 +10,10 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 
 @JsonSnakeCase
-public class KubernetesConfiguration {
+public class DockercloudConfiguration {
   @NotNull
   @NotEmpty
-  private String masterIp;
+  private String hostname;
 
   @NotNull
   @NotEmpty
@@ -21,7 +21,7 @@ public class KubernetesConfiguration {
 
   @NotNull
   @NotEmpty
-  private String password;
+  private String apikey;
 
   @NotNull
   @NotEmpty
@@ -29,15 +29,23 @@ public class KubernetesConfiguration {
 
   // this can be null
   private String protocol;
+  
+  @NotNull
+  @NotEmpty
+  private String stackExistsTestImage;  // We do a hacky test of a image with a version to see if it exists or not.  what image?
+  
+  @NotNull
+  @NotEmpty
+  private String stackJsonPath;
 
   @JsonProperty
-  public String getMasterIp() {
-    return masterIp;
+  public String getHostname() {
+    return hostname;
   }
 
   @JsonProperty
-  public void setMasterIp(String masterIp) {
-    this.masterIp = masterIp;
+  public void setHostname(String masterIp) {
+    this.hostname = masterIp;
   }
 
   @JsonProperty
@@ -61,13 +69,13 @@ public class KubernetesConfiguration {
   }
 
   @JsonProperty
-  public String getPassword() {
-    return password;
+  public String getApikey() {
+    return apikey;
   }
 
   @JsonProperty
-  public void setPassword(String password) {
-    this.password = password;
+  public void setApikey(String apikey) {
+    this.apikey = apikey;
   }
 
   @JsonProperty
@@ -78,5 +86,25 @@ public class KubernetesConfiguration {
   @JsonProperty
   public void setNamespace(String namespace) {
     this.namespace = namespace;
+  }
+  
+  @JsonProperty
+  public String getStackJsonPath() {
+    return stackJsonPath;
+  }
+
+  @JsonProperty
+  public void setStackJsonPath(String stackJsonPath) {
+    this.stackJsonPath = stackJsonPath;
+  }
+  
+  @JsonProperty
+  public String getStackExistsTestImage() {
+	return stackExistsTestImage;
+  }
+  
+  @JsonProperty
+  public void setStackExistsTestImage(String stackExistsTestImage) {
+	this.stackExistsTestImage = stackExistsTestImage;
   }
 }

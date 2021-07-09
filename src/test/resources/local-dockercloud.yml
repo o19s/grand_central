@@ -1,0 +1,23 @@
+janitor_cleanup_threshold: 3600
+maximum_stack_count: 1
+grandcentral_domain: apache.grandcentral.com
+refresh_interval_in_ms: 300000
+
+pod_port: 80
+
+dockercloud:
+  protocol: https
+  hostname: cloud.docker.com
+  namespace: apache
+  stack_json_path: src/test/resources/docker-cloud.json
+  stack_exists_test_image: eboraas/apache
+  username: ${DOCKERCLOUD_USERNAME}
+  apikey: ${DOCKERCLOUD_APIKEY}
+
+server:
+  type: simple
+  applicationContextPath: /
+  adminContextPath: /admin
+  connector:
+    type: http
+    port: 8080

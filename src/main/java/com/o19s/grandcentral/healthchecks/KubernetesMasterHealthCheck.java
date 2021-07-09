@@ -1,6 +1,10 @@
 package com.o19s.grandcentral.healthchecks;
 
-import com.codahale.metrics.health.HealthCheck;
+import java.io.File;
+import java.io.IOException;
+
+import javax.net.ssl.SSLContext;
+
 import org.apache.http.HttpStatus;
 import org.apache.http.auth.AuthScope;
 import org.apache.http.auth.UsernamePasswordCredentials;
@@ -23,9 +27,7 @@ import org.apache.http.ssl.SSLContexts;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.net.ssl.SSLContext;
-import java.io.File;
-import java.io.IOException;
+import com.codahale.metrics.health.HealthCheck;
 
 public class KubernetesMasterHealthCheck extends HealthCheck {
   private static final Logger LOGGER = LoggerFactory.getLogger(KubernetesMasterHealthCheck.class);

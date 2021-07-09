@@ -1,8 +1,8 @@
 package com.o19s.grandcentral.http;
 
-import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
-
 import java.net.URI;
+
+import org.apache.http.client.methods.HttpEntityEnclosingRequestBase;
 
 /**
  * HTTP Delete request with a request body

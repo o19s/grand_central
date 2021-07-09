@@ -1,0 +1,10 @@
+{
+  "name": "apache",
+  "services": [
+      {
+        "name":"apache",
+        "image": "eboraas/apache:__DOCKER_TAG__",
+        "ports": ["80:80"]
+      }
+  ]
+}
